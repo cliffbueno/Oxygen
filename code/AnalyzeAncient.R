@@ -7,38 +7,52 @@ library(tidyverse)
 library(mgcv)
 library(readxl)
 library(car)
+library(segmented)
+library(ggbeeswarm)
+`%notin%` <- Negate(`%in%`)
 
 # Working directory
-setwd("~/Desktop/Fierer/AEGIS/Oxygen")
+setwd("~/Documents/GitHub/Oxygen/")
 
 # The 20 Pfams
-oxygen_pfams <- read.csv("Oxygen_pfams.csv")
+oxygen_pfams <- read.csv("data/Oxygen_pfams.csv")
 aerobic_pfams <- oxygen_pfams %>%
   filter(Oxygen == "aerobic")
 anaerobic_pfams <- oxygen_pfams %>%
   filter(Oxygen == "anaerobic")
 
 # Gene IDs for all of the variants of each Pfam
-map <- read.table("pfam_headers_table_fixed.txt", sep = "\t", header = TRUE, 
+map <- read.table("data/pfam_headers_table.txt", sep = "\t", header = TRUE, 
                   stringsAsFactors = FALSE, quote = "") %>%
   separate(Header, into = c("Header", "Junk"), sep = " ") %>%
   select(-Junk)
 table(map$Pfam) # Number of variants per Pfam
 
+# Mean gene lengths for the 20 Pfams
+pfam_gene_length <- read.delim("data/pfam_mean_lengths.tsv") %>%
+  separate(Pfam, sep = "-", into = c("Junk1", "Junk2", "Pfam")) %>%
+  mutate(Gene.length = MeanLength * 3) %>%
+  dplyr::select(Pfam, Gene.length)
+
 # Model (from simulations)
-gam_model <- readRDS("gam_model.rds")
+gam_model <- readRDS("data/gam_model.rds")
 
 
 
 #### 2. Parse Diamond ####
 # Loop through all the ancient samples
 # First try bacterial + archaeal reads, then bacteria only
-# Note: S3, S9, S11, S15, S16, S17, S19, S20 had no diamond output.
-setwd("diamond_output_ancientBA/")
+# Note: S3, S9, S11, S15, S16, S17, S19, S20 had no Bact + Arch. (no S10)
+# Note: S3, S9, S11, S12, S15, S16, S17, S19, S20 had no Bact.
+# Note: Need to tweak the Diamond cutoffs for ancient DNA!
+# Note: mean Bacterial read lengths range from 44 to 72, min 30, max 121 bp
+
+#### _Bact + Arch ####
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_ancientBA/")
 files <- list.files()
 length(files)
-results <- as.data.frame(matrix(nrow = length(files), ncol = 2, NA)) %>%
-  set_names(c("filename", "ratio"))
+results <- as.data.frame(matrix(nrow = length(files), ncol = 5, NA)) %>%
+  set_names(c("filename", "ratio", "Pfams", "Aerobe_Pfams", "Anaerobe_Pfams"))
 
 
 for (i in 1:length(files)) {
@@ -50,11 +64,17 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
-    filter(pident >= 60) %>%
-    filter(evalue < 0.001) %>%
-    filter(bitscore >= 50) %>%
+    filter(pident >= 45) %>% # Changed from 60 to 45
+    filter(evalue < 0.1) %>% # Changed from 0.001 to 0.1
+    filter(bitscore >= 25) %>% # Changed from 50 to 25
     mutate(Gene.length = abs(send - sstart)) %>%
     left_join(., map, by = c("sseqid" = "Header"))
+  
+  # Number of the 20 Pfams found
+  pf_count <- as.data.frame(table(d$Pfam)) 
+  results$Pfams[i] <- nrow(pf_count)
+  results$Aerobe_Pfams[i] <- sum(pf_count$Var1 %in% aerobic_pfams$Pfam)
+  results$Anaerobe_Pfams[i] <- sum(pf_count$Var1 %in% anaerobic_pfams$Pfam)
   
   # Gene hits
   gene.hits = d %>% 
@@ -62,7 +82,11 @@ for (i in 1:length(files)) {
     summarise(total_count=n())
   
   # Correct for gene length (reads per kilobase)
-  gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
+  # gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
+  #   mutate(RPK = total_count / (1000*Gene.length)) %>%
+  #   left_join(., oxygen_pfams, by = "Pfam")
+  gene.hit.length.correction <- gene.hits %>%
+    left_join(., pfam_gene_length, by = "Pfam") %>%
     mutate(RPK = total_count / (1000*Gene.length)) %>%
     left_join(., oxygen_pfams, by = "Pfam")
   
@@ -79,134 +103,266 @@ for (i in 1:length(files)) {
   
 }
 warnings()
-setwd("../")
-new_data <- data.frame(ratio = results$ratio)  # or a sequence of values
+setwd("~/Documents/GitHub/Oxygen/")
+new_data <- data.frame(ratio = results$ratio)
 results$Per_aerobe <- predict(gam_model, newdata = new_data)
 results <- results %>%
   mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
   mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
   mutate(sampleID = gsub("_R1_ann.tsv", "", filename))
-saveRDS(results, "results_modern.rds")
+#saveRDS(results, "data/results_ancientBA.rds")
+
+
+
+#### _Bact ####
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_ancientB/")
+files <- list.files()
+length(files)
+results <- as.data.frame(matrix(nrow = length(files), ncol = 5, NA)) %>%
+  set_names(c("filename", "ratio", "Pfams", "Aerobe_Pfams", "Anaerobe_Pfams"))
+
+for (i in 1:length(files)) {
+  
+  # Add filename to the dataframe
+  results$filename[i] <- files[i]
+  
+  # Read in and filter the data
+  d <- read.table(files[i]) %>%
+    set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
+                "sstart",	"send",	"evalue",	"bitscore")) %>%
+    filter(pident >= 45) %>% # Changed from 60 to 45
+    filter(evalue < 0.1) %>% # Changed from 0.001 to 0.1
+    filter(bitscore >= 25) %>% # Changed from 50 to 25
+    mutate(Gene.length = abs(send - sstart)) %>%
+    left_join(., map, by = c("sseqid" = "Header"))
+  
+  # Number of the 20 Pfams found
+  pf_count <- as.data.frame(table(d$Pfam)) 
+  results$Pfams[i] <- nrow(pf_count)
+  results$Aerobe_Pfams[i] <- sum(pf_count$Var1 %in% aerobic_pfams$Pfam)
+  results$Anaerobe_Pfams[i] <- sum(pf_count$Var1 %in% anaerobic_pfams$Pfam)
+  
+  # Gene hits
+  gene.hits = d %>% 
+    group_by(Pfam) %>% 
+    summarise(total_count=n())
+  
+  # Correct for gene length (reads per kilobase)
+  # gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
+  #   mutate(RPK = total_count / (1000*Gene.length)) %>%
+  #   left_join(., oxygen_pfams, by = "Pfam")
+  gene.hit.length.correction <- gene.hits %>%
+    left_join(., pfam_gene_length, by = "Pfam") %>%
+    mutate(RPK = total_count / (1000*Gene.length)) %>%
+    left_join(., oxygen_pfams, by = "Pfam")
+  
+  # Now sum by aerobe indicator vs anaerobe indicator
+  oxygen_rpk <- gene.hit.length.correction %>%
+    group_by(Oxygen) %>%
+    summarize(RPKsum = sum(RPK))
+  
+  # Calculate the ratio and add it to the dataframe
+  results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
+  
+  # Status
+  message("Done processing table ", i)
+  
+}
+warnings()
+setwd("~/Documents/GitHub/Oxygen/")
+new_data <- data.frame(ratio = results$ratio)
+results$Per_aerobe <- predict(gam_model, newdata = new_data)
+results <- results %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
+  mutate(sampleID = gsub("_R1_ann.tsv", "", filename))
+#saveRDS(results, "data/results_ancientB.rds")
 
 
 
 #### 3. Analyze ####
 # Now analyze the predicted % aerobe by habitat and depth
-meta <- read_xlsx("AncientMetaG.xlsx")
-length(unique(meta$sampleID)) # n = 278
-results <- readRDS("results_modern.rds")
-length(unique(results$sampleID)) # 278
-read_counts <- read.delim("read_counts_table.tsv") %>%
-  mutate(Per_Bact = Bact_Reads/QC_reads)
-length(unique(read_counts$sampleID))
-sum(read_counts$Bact_Reads > 1000000) # 109 with > 1 mil bact reads
-d <- read_xlsx("ModernMetaG.xlsx") %>%
-  left_join(., results, by = "sampleID") %>%
-  left_join(., read_counts, by = "sampleID") %>%
-  mutate(Depth_cm = as.numeric(Depth_cm),
-         Oxygen = as.numeric(Oxygen),
-         O2_H2S = as.numeric(O2_H2S),
-         Temp = as.numeric(Temp),
-         pH = as.numeric(pH),
-         Habitat = as.factor(Habitat),
-         Habitat2 = as.factor(Habitat2),
-         Site = as.factor(Site)) %>%
-  filter(is.na(Per_aerobe) == FALSE) %>%
-  droplevels()
-levels(d$Habitat)
-levels(d$Habitat2)
-range(d$Bact_Reads)
-m <- aov(Bact_Reads ~ Habitat, data = d)
-summary(m) # 8 1.617e+16 2.022e+15   23.49 <2e-16 ***
-# From Paul Tol muted palette
-pdf("InitialFigs/ReadCounts.pdf", width = 7, height = 5)
-ggplot(d, aes(reorder(Habitat, Bact_Reads, mean), Bact_Reads, colour = Habitat)) +
-  geom_boxplot(outliers = F) +
-  geom_jitter(size = 3, alpha = 0.8, width = 0.25) +
-  scale_colour_manual(values = c("#882255", "brown1", "#882255", 
-                                 "#88CCEE", 
-                                 "#882255",
-                                 "#DDCC77", "#44AA99", 
-                                 #"#882255", 
-                                 "#DDCC77", "#88CCEE", 
-                                 "#44AA99", "#88CCEE", "#DDCC77", "black", "black")) +
-  labs(x = NULL, y = "# Bacterial reads") +
-  scale_y_log10() +
-  theme_bw() +
-  theme(legend.position = "none",
-        axis.text.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.title = element_text(size = 12))
-dev.off()
+read_stats <- read.table("data/ancient_fastq_length_stats.tsv", 
+                         sep = "\t",
+                         header = F) %>%
+  separate(V2, into = c("reads", "mean", "min", "max"), sep = " ") %>%
+  separate(V1, into = c("sampleID", "filename"), sep = "_") %>%
+  mutate(reads = as.numeric(reads),
+         mean = as.numeric(mean),
+         min = as.numeric(min),
+         max = as.numeric(max))
+meta1 <- read.table("data/per-sample-ancient-subglacial-only-nmds-loading.txt",
+                    header = TRUE) %>%
+  mutate(Cluster = ifelse(MDS1 < -0.5, "Left", "Right"))
+table(meta1$Cluster)
+ggplot(meta1, aes(MDS1, MDS2)) +
+  geom_point() +
+  theme_bw()
+meta2 <- read_xlsx("data/subglacial_metadata_300325_AH_BDS.xlsx") %>%
+  filter(!is.na(Filename))
 
+resultsB <- readRDS("data/results_ancientB.rds") %>%
+  separate(filename, into = c("sampleID", "filename"), sep = "_") %>%
+  filter(sampleID %notin% c("left", "right")) %>%
+  filter(Pfams >= 2) %>% # Have to have at least 2/20 Pfams detected
+  left_join(., read_stats, by = "sampleID") %>%
+  left_join(., meta2, by = c("sampleID" = "Filename")) %>%
+  left_join(., meta1, by = c("Paper code" = "Sample")) %>%
+  mutate(Method = ifelse(is.na(ratio), "Presence/Absence", "Ratio")) %>%
+  dplyr::select(sampleID, Cluster, ratio, Pfams, Aerobe_Pfams, Anaerobe_Pfams,
+                Per_aerobe, Method, reads, mean, min, max, Age, AgeBin, Composition,
+                Lat, Lon, GeoCluster.x, δ15N, δ18OVPDB, δ13Ccarb, δ13Corg, `C:N`, 
+                `%C`, `%N`, `87Sr/86Sr`, `P/Ca`, `234/238i`, `Color/Descrption`,
+                `Collection Environment`, MDS1, MDS2) %>%
+  mutate(Per_aerobe = ifelse(is.na(ratio), 
+                             ifelse(Aerobe_Pfams == 0, 0, 100),
+                             Per_aerobe))
+table(resultsB$Cluster)
 
-
-#### _Habitat ####
-table(d$Habitat)
-m <- aov(Per_aerobe ~ Habitat, data = d)
-summary(m) # 11 254127   23102   57.94 <2e-16 ***
-ggplot(d, aes(reorder(Habitat, Per_aerobe, mean), Per_aerobe, colour = Habitat)) +
-  geom_boxplot(outliers = F) +
-  geom_jitter(size = 3, alpha = 0.8, width = 0.25) +
-  scale_colour_manual(values = c("#882255", "brown1", "#88CCEE", "#882255", 
-                                 "#88CCEE", "#882255", "#DDCC77", "#44AA99", 
-                                 "#DDCC77", "#882255", "#DDCC77", "#88CCEE", 
-                                 "#44AA99", "#DDCC77")) +
-  labs(x = NULL, y = "Aerobe relative abundance (%)") +
-  theme_bw() +
-  theme(legend.position = "none",
-        axis.text.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.title = element_text(size = 12))
-
-table(d$Habitat2)
-m <- aov(Per_aerobe ~ Habitat2, data = d)
-summary(m) # 16 300316   18770   97.64 <2e-16 ***
-ggplot(d, aes(reorder(Habitat2, Per_aerobe, mean), Per_aerobe)) +
-  geom_boxplot(outliers = F, aes(colour = Habitat2)) +
-  geom_jitter(pch = 21, size = 3, alpha = 0.8, width = 0.25, aes(fill = Habitat2)) +
-  scale_colour_manual(values = c("brown1", "#DDCC77", "#332288", "#332288", "#88CCEE", 
-                                 "#88CCEE", "#DDCC77", "#44AA99", "#DDCC77", "#DDCC77", 
-                                 "#332288", "#332288", "#44AA99", "#882255", "#882255", 
-                                 "#882255","#882255", "#882255", "#882255", "#DDCC77")) +
-  scale_fill_manual(values = c("brown1", "#DDCC77", "#332288", "#332288", "#88CCEE", 
-                                 "#88CCEE", "#DDCC77", "#44AA99", "#DDCC77", "#DDCC77", 
-                                 "#332288", "#332288", "#44AA99", "#882255", "#882255", 
-                                 "#882255","#882255", "#882255", "#882255", "#DDCC77")) +
-  labs(x = NULL, y = "Predicted aerobe relative abundance (%)") +
-  theme_bw() +
-  theme(legend.position = "none",
-        axis.text.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.title = element_text(size = 12))
-
-d_plot <- d %>%
-  filter(Plot == "Yes") %>%
-  droplevels()
-table(d_plot$Habitat3)
-table(d_plot$Type)
-m <- aov(Per_aerobe ~ Habitat3, data = d_plot)
-summary(m) # 15 281245   18750   235.7 <2e-16 ***
-pdf("InitialFigs/Habitat_Aerobe.pdf", width = 7, height = 5)
-ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
-  geom_boxplot(outliers = F, aes(colour = Type)) +
-  geom_jitter(pch = 21, size = 3, alpha = 0.8, width = 0.25, aes(fill = Type)) +
-  scale_colour_manual(values = c("#88CCEE", "#44AA99", "#332288", "#DDCC77", "brown1", 
-                                 "#882255")) +
-  scale_fill_manual(values = c("#88CCEE", "#44AA99", "#332288", "#DDCC77", "brown1", 
-                               "#882255")) +
-  labs(x = NULL, y = "Predicted aerobe relative abundance (%)") +
+# Reads and Pfams
+lm_fit <- lm(Pfams ~ reads, data = resultsB)
+seg_fit <- segmented(lm_fit, seg.Z = ~reads, psi = list(reads = 30000))
+seg_fit$psi
+resultsB$fit <- fitted(seg_fit)
+ggplot(resultsB, aes(reads, Pfams)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm") +
+  labs(x = "# bacterial reads",
+       y = "# Pfams detected") +
+  scale_y_continuous(breaks = seq(1, 12)) +
   theme_classic() +
-  theme(legend.position = "inside",
-        legend.position.inside = c(1, 0),
-        legend.justification.inside = c(1, 0),
-        legend.background = element_blank(),
-        legend.title = element_blank(),
-        axis.text.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.title = element_text(size = 12))
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+range(resultsB$reads)
+pdf("InitialFigs/Bianca_ReadsPfams.pdf", width = 6, height = 4)
+ggplot(resultsB, aes(mean, Pfams)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm") +
+  labs(x = "Mean bacterial read length (bp)",
+       y = "# Pfams detected") +
+  scale_y_continuous(breaks = seq(1, 12)) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
 dev.off()
 
+# Cluster and % aerobes
+pdf("InitialFigs/Bianca_Cluster_Aerobes.pdf", width = 6, height = 4)
+ggplot(resultsB, aes(Cluster, Per_aerobe)) +
+  geom_beeswarm(size = 4, pch = 21, color = "white", fill = "black") +
+  labs(x = "NMDS Cluster",
+       y = "Predicted % abundance of aerobic bacteria") +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+dev.off()
 
+ggplot(resultsB, aes(Cluster, Aerobe_Pfams)) +
+  geom_beeswarm(size = 4, pch = 21, color = "white", fill = "black") +
+  labs(x = "NMDS Cluster",
+       y = "# Aerobic Pfams") +
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
 
-# End script
+pdf("InitialFigs/Bianca_Cluster_AnaerobePfams.pdf", width = 6, height = 4)
+ggplot(resultsB, aes(Cluster, Anaerobe_Pfams)) +
+  geom_beeswarm(size = 4, pch = 21, color = "white", fill = "black") +
+  labs(x = "NMDS Cluster",
+       y = "# Anaerobic Pfams") +
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+dev.off()
+
+# Other variables
+ggplot(resultsB, aes(δ15N, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "δ15N",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(δ18OVPDB, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "δ18OVPDB",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(δ13Ccarb, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "δ13Ccarb",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(δ13Corg, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "δ13Corg",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`C:N`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "C:N",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`%C`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "%C",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`%N`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "%N",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`87Sr/86Sr`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "87Sr/86Sr",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`P/Ca`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "P/Ca",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(`234/238i`, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "234/238i",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))
+ggplot(resultsB, aes(Age, Per_aerobe, fill = Cluster)) +
+  geom_point(size = 4, pch = 21, color = "white") +
+  labs(x = "Age (kya)",
+       y = "Predicted % abundance of aerobic bacteria") +
+  scale_fill_manual(values = c("red", "blue")) +
+  theme_classic() +
+  theme(axis.text = element_text(color = "black", size = 10),
+        axis.title = element_text(color = "black", size = 12))

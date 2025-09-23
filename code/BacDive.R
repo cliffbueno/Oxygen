@@ -9,7 +9,7 @@ library(BacDive)
 `%notin%` <- Negate(`%in%`)
 
 # Test BacDive
-bacdive <- open_bacdive("cliff.buenodemesquita@colorado.edu", "P!P!larett@is0utstanding")
+bacdive <- open_bacdive("cliff.buenodemesquita@colorado.edu", "enterpassword")
 example(fetch)
 one_strain <- fetch(object = bacdive, ids = 5621)
 one_strain
@@ -21,7 +21,7 @@ one_strain$results[[1]]$`Name and taxonomic classification`$genus
 two_strain <- fetch(object = bacdive, ids = 5621, 139709)
 
 # Working Directory
-setwd("~/Desktop/Fierer/AEGIS/Oxygen/")
+setwd("~/Documents/GitHub/Oxygen/")
 
 # Download all strains with oxygen tolerance data (May 20, 2025)
 # Pie online says total count 24162
@@ -32,7 +32,7 @@ setwd("~/Desktop/Fierer/AEGIS/Oxygen/")
 
 #### GTDB ####
 # Bacterial metadata from GTDB r226
-bacGT <- read_tsv("bac120_metadata_r226.tsv") %>% # 715230 genomes
+bacGT <- read_tsv("~/Desktop/Fierer/AEGIS/Oxygen/bac120_metadata_r226.tsv") %>% # 715230 genomes
   mutate(gb_accession = substr(ncbi_genbank_assembly_accession,
                                start = 1,
                                stop = nchar(ncbi_genbank_assembly_accession) - 2))
@@ -57,7 +57,7 @@ bacGT_useful <- bacGT %>%
 # First Pass
 # Keep main classes. 23161
 # Keep type strains. 11108
-d <- read.csv("advsearch_bacdive_2025-05-20.csv") %>%
+d <- read.csv("data/advsearch_bacdive_2025-05-20.csv") %>%
   filter(!is.na(ID)) %>%
   filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "facultative anaerobe",
                                  "microaerophile", "anaerobe", "obligate anaerobe")) %>%
@@ -72,17 +72,17 @@ info <- list()
 # Will filter to GTDB representatives later
 # n = 8673
 # n = 7124 using the 4 main categories
-d_ncbi <- read.csv("advsearch_bacdive_2025-06-03_Dom_Phy_O2_GCA_ID.csv") %>%
+d_ncbi <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_Phy_O2_GCA_ID.csv") %>%
   filter(!is.na(ID)) %>%
   filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
   mutate(Genome.Sequence.database = "NCBI")
 
 # Add img? But not linked to GTDB
-d_img_phy <- read.csv("advsearch_bacdive_2025-06-03_Dom_Phy_O2_notGCA_ID.csv") %>%
+d_img_phy <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_Phy_O2_notGCA_ID.csv") %>%
   filter(!is.na(ID)) %>%
   filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
   dplyr::select(ID, phylum)
-d_img <- read.csv("advsearch_bacdive_2025-06-03_Dom_O2_notGCA_ID_IMG.csv") %>%
+d_img <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_O2_notGCA_ID_IMG.csv") %>%
   filter(!is.na(ID)) %>%
   filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
   left_join(., d_img_phy, by = "ID") %>%
@@ -115,7 +115,6 @@ phylum_counts_clear <- d %>%
   summarise(Freq = n()) %>%
   ungroup() %>%
   mutate(phylum = factor(phylum, levels = phylum_counts$Var1))
-pdf("BacDive_BacterialPhylumNumbers_Binary2.pdf", width = 8, height = 6)
 ggplot(phylum_counts_clear, aes(phylum, Freq, fill = Oxygen2)) +
   geom_bar(stat = "identity") +
   geom_text(data = phylum_counts,
@@ -132,14 +131,13 @@ ggplot(phylum_counts_clear, aes(phylum, Freq, fill = Oxygen2)) +
         legend.position = "inside",
         legend.position.inside = c(1,1),
         legend.justification = c(1,1))
-dev.off()
 
 # Merge with GTDB
 sum(bacGT$gb_accession %in% d$Genome.seq..accession.number) # 7034 of 7124
 sum(d$Genome.seq..accession.number %in% bacGT$gb_accession) # 7034 of 7124
 missings <- d %>%
   filter(Genome.seq..accession.number %notin% bacGT$gb_accession)
-# Missings don't appear to be a formating issue. They just aren't there.
+# Missing ones don't appear to be a formatting issue. They just aren't there.
 bacdive_gtdb <- bacGT %>%
   filter(gb_accession %in% d$Genome.seq..accession.number)
 table(bacdive_gtdb$gtdb_representative)
@@ -159,12 +157,12 @@ d_gtdb <- bacdive_gtdb_rep %>%
                 gtdb_representative, gtdb_taxonomy, ncbi_assembly_level, ncbi_country,
                 ncbi_genbank_assembly_accession, ncbi_genome_category, ncbi_isolation_source, 
                 ncbi_refseq_category, ncbi_species_taxid, ncbi_taxid, Oxygen.tolerance, Oxygen2)
-dwn <- read.delim("genome_filenames.txt", header = F) %>%
+dwn <- read.delim("data/genome_filenames.txt", header = F) %>%
   separate(V1, into = c("GenomeID", "Junk1", "Junk2", "Junk3"), sep = "_") %>%
   mutate(GenomeID = paste(GenomeID, Junk1, sep = "_"))
 miss <- d_gtdb %>%
   filter(ncbi_genbank_assembly_accession %notin% dwn$GenomeID)
-# This one GCA_005925325.1 is suppressed! So 5520.
+# This one GCA_005925325.1 is suppressed! So final number is 5520.
 d_gtdb <- d_gtdb %>%
   filter(ncbi_genbank_assembly_accession %notin% miss$ncbi_genbank_assembly_accession) %>%
   mutate(gtdb_taxonomy = gsub("d__", "", gtdb_taxonomy)) %>%
@@ -185,8 +183,7 @@ phylum_counts_clear <- d_gtdb %>%
   summarise(Freq = n()) %>%
   ungroup() %>%
   mutate(Phylum = factor(Phylum, levels = phylum_counts$Var1))
-pdf("BacDive_BacterialPhylumNumbers_Binary_Reps.pdf", width = 8, height = 6)
-ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
+phy_fig <- ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
   geom_bar(stat = "identity") +
   geom_text(data = phylum_counts,
             aes(x = Var1, y = Freq + 150, label = Freq), size = 2.5, angle = 45, 
@@ -202,8 +199,35 @@ ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
         legend.position = "inside",
         legend.position.inside = c(1,1),
         legend.justification = c(1,1))
+phy_fig
+pdf("InitialFigs/BacDive_BacterialPhylumNumbers_Binary_Reps.pdf", width = 8, height = 6)
+phy_fig
 dev.off()
 
+phy_fig <- ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
+  geom_bar(stat = "identity") +
+  geom_text(data = phylum_counts,
+            aes(x = Var1, y = Freq + 150, label = Freq), size = 2.5, angle = 45, 
+            vjust = 1, inherit.aes = F) +
+  labs(x = "Phylum", y = "Genomes") +
+  scale_fill_manual(values = c("red", "blue")) +
+  scale_y_continuous(expand = c(0.01, 0.01),
+                     limits = c(0, 3000)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        legend.title = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(1,1),
+        legend.justification = c(1,1))
+phy_fig
+pdf("FinalFigs/FigureS1.pdf", width = 8, height = 6)
+phy_fig
+dev.off()
+png("FinalFigs/FigureS1.png", width = 8, height = 6, units = "in", res = 300)
+phy_fig
+dev.off()
 
 
 
