@@ -6,6 +6,8 @@
 library(tidyverse)
 #install.packages("BacDive", repos="http://R-Forge.R-project.org")
 library(BacDive)
+library(ggrepel)
+library(ggbeeswarm)
 `%notin%` <- Negate(`%in%`)
 
 # Test BacDive
@@ -156,7 +158,8 @@ d_gtdb <- bacdive_gtdb_rep %>%
                 checkm_completeness, checkm_contamination, gc_percentage, genome_size,
                 gtdb_representative, gtdb_taxonomy, ncbi_assembly_level, ncbi_country,
                 ncbi_genbank_assembly_accession, ncbi_genome_category, ncbi_isolation_source, 
-                ncbi_refseq_category, ncbi_species_taxid, ncbi_taxid, Oxygen.tolerance, Oxygen2)
+                ncbi_refseq_category, ncbi_species_taxid, ncbi_taxid, Oxygen.tolerance,
+                Oxygen2)
 dwn <- read.delim("data/genome_filenames.txt", header = F) %>%
   separate(V1, into = c("GenomeID", "Junk1", "Junk2", "Junk3"), sep = "_") %>%
   mutate(GenomeID = paste(GenomeID, Junk1, sep = "_"))
@@ -278,6 +281,8 @@ info_merged_wGenome <- info_merged %>%
 #saveRDS(info_merged_wGenome, "info_merged_wGenome.rds")
 #write.table(info_merged_wGenome$NCBI_ID, "taxon_ids.txt", sep = "\t")
 
+
+
 #### Info ####
 info_merged_wGenome <- readRDS("info_merged_wGenome.rds")
 table(info_merged_wGenome$Domain)
@@ -387,3 +392,231 @@ write.table(taxid_count$NCBI_ID, "taxon_ids.txt", sep = "\t",
 #dos2unix taxon_ids.txt
 #sed -i 's/"//g' taxon_ids.txt
 
+
+
+#### Prevalence ####
+# Start here
+d <- read.csv("data/bacdive_gtdb_metadata_5520.csv") %>%
+  mutate(Oxygen2 = as.factor(Oxygen2))
+d_Aer <- d %>%
+  filter(Oxygen2 == "aerobic")
+d_An <- d %>%
+  filter(Oxygen2 == "anaerobic")
+pfams_merged_pa <- readRDS("data/pfams_merged_pa.rds")
+pfams_aer <- pfams_merged_pa %>%
+  select(all_of(d_Aer$ncbi_genbank_assembly_accession))
+pfams_an <- pfams_merged_pa %>%
+  select(all_of(d_An$ncbi_genbank_assembly_accession))
+
+# Check prevalence of Pfams
+pfams_prev <- data.frame(Pfam = rownames(pfams_merged_pa),
+                         Prev = rowSums(pfams_merged_pa)) %>%
+  mutate(Perc = Prev/5520*100) %>%
+  filter(Prev > 0)
+hist(pfams_prev$Prev)
+sum(pfams_prev$Prev == 0) # 0 (duh)
+sum(pfams_prev$Prev == 5520) # 73 (these need to be removed, not informative)
+pfams_all <- pfams_prev %>%
+  filter(Prev == 5520)
+
+pfams_aer_prev <- data.frame(Pfam = rownames(pfams_aer),
+                             Aer_Prev = rowSums(pfams_aer)) %>%
+  mutate(Aer_Perc = Aer_Prev/4227*100) %>%
+  filter(Aer_Prev > 0)
+hist(pfams_aer_prev$Aer_Prev)
+sum(pfams_aer_prev$Aer_Prev == 0) # 907 just in anaerobes
+sum(pfams_aer_prev$Aer_Prev == 4227) # 90 in all
+sum(pfams_aer_prev$Aer_Perc >= 80) # 1357 in ≥ 80%
+pfams_aer_80 <- pfams_aer_prev %>%
+  filter(Aer_Perc >= 80)
+pfams_aer_50 <- pfams_aer_prev %>%
+  filter(Aer_Perc >= 50)
+
+pfams_an_prev <- data.frame(Pfam = rownames(pfams_an),
+                            An_Prev = rowSums(pfams_an)) %>%
+  mutate(An_Perc = An_Prev/1293*100) %>%
+  filter(An_Prev > 0)
+hist(pfams_an_prev$An_Prev)
+sum(pfams_an_prev$An_Prev == 0) #  4182 just in aerobes
+sum(pfams_an_prev$An_Prev == 1293) # 142 in all
+sum(pfams_an_prev$An_Perc >= 80) # 1096 in ≥ 80%
+pfams_an_80 <- pfams_an_prev %>%
+  filter(An_Perc >= 80)
+pfams_an_50 <- pfams_an_prev %>%
+  filter(An_Perc >= 50)
+
+# Elias model results top 20
+eli <- read.csv("data/selected_important_features.csv") %>%
+  dplyr::select(Feature, Aggregated_Score) %>%
+  set_names(c("Pfam", "SHAP")) %>%
+  left_join(., pfams_aer_prev, by = "Pfam") %>%
+  left_join(., pfams_an_prev, by = "Pfam") %>%
+  mutate(Indicator = ifelse(Aer_Perc > 50, 
+                            "Aerobic indicator", 
+                            "Anaerobic indicator")) %>%
+  mutate(PfamCode = substr(Pfam, 1, 7))
+
+pdf("FinalFigs/Figure2.pdf", width = 7, height = 5)
+ggplot(eli, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
+  geom_point(size = 3, pch = 16) + 
+  geom_text_repel(aes(x = Aer_Perc, y = An_Perc, label = PfamCode),
+                  inherit.aes = FALSE, size = 2) +
+  scale_colour_manual(values = c("grey80", "black")) +
+  labs(x = "Prevalence in aerobes (%)",
+       y = "Prevalence in anaerobes (%)") +
+  xlim(0, 100) +
+  ylim(0, 100) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "inside",
+        legend.position.inside = c(1,1),
+        legend.justification.inside = c(1,1),
+        legend.background = element_blank())
+dev.off()
+png("FinalFigs/Figure2.png", width = 7, height = 5, units = "in", res = 300)
+ggplot(eli, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
+  geom_point(size = 3, pch = 16) + 
+  geom_text_repel(aes(x = Aer_Perc, y = An_Perc, label = PfamCode),
+                  inherit.aes = FALSE, size = 2) +
+  scale_colour_manual(values = c("grey80", "black")) +
+  labs(x = "Prevalence in aerobes (%)",
+       y = "Prevalence in anaerobes (%)") +
+  xlim(0, 100) +
+  ylim(0, 100) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "inside",
+        legend.position.inside = c(1,1),
+        legend.justification.inside = c(1,1),
+        legend.background = element_blank())
+dev.off()
+
+
+
+#### SHAP ####
+# Plot the SHAP scores for the top 20 genes
+# For supplementary figure
+eli_sort <- eli %>%
+  arrange(Indicator, SHAP) %>%
+  mutate(Ind = gsub(" indicator", "", Indicator))
+s <- read.csv("data/ensemble_shap_values_Class_1.csv")
+# These are the 1104 genomes used for testing (20% of 5520)
+table(s$true_class) # 845 0 (aerobe) and 259 1 (anaerobe)
+s <- read.csv("data/ensemble_shap_values_Class_1.csv") %>%
+  dplyr::select(-X, -sample_idx) %>%
+  pivot_longer(cols = c(2:21)) %>%
+  mutate(true_class = as.factor(true_class),
+         name = substr(name, 1, 7)) %>%
+  left_join(., eli_sort, by = c("name" = "PfamCode")) %>%
+  mutate(name = factor(name,
+                       levels = eli_sort$PfamCode))
+figs2a <- ggplot(s, aes(name, value, colour = true_class)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_quasirandom(pch = 16, alpha = 0.5, size = 1) +
+  labs(x = NULL, y = "SHAP value", colour = NULL) +
+  scale_colour_manual(values = c("#F8766D", "#619CFF"),
+                      labels = c("Aerobe", "Anaerobe")) +
+  facet_grid(Ind ~ 1, space = "free", scales = "free_y") +
+  coord_flip() +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        strip.text = element_text(size = 14),
+        legend.position = "inside",
+        legend.position.inside = c(0.85, 0.4),
+        legend.key.size = unit(0.5, "cm"),
+        legend.background = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank())
+figs2a
+
+# Make the confusion matrix for figs2b
+TClass <- factor(c("Aerobe", "Aerobe", "Anaerobe", "Anaerobe"))
+PClass <- factor(c("Aerobe", "Anaerobe", "Aerobe", "Anaerobe"))
+Y      <- c("98%", "2%", "11%", "89%")
+df <- data.frame(TClass, PClass, Y)
+figs2b <- ggplot(df, aes(x = TClass, y = PClass)) +
+  geom_tile(fill = "white", colour = "black", linewidth = 1) +
+  geom_text(aes(label = Y), size = 7) +
+  labs(x = "True", y = "Predicted") +
+  coord_flip() +
+  theme_bw() + 
+  theme(legend.position = "none",
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.y = element_text(size = 14, vjust = -3),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, vjust = 5),
+        axis.title.x = element_text(size = 14, vjust = 5),
+        plot.margin = margin(0.1,0.1,0.1,0.1))
+figs2b
+
+pdf("FinalFigs/FigureS2.pdf", width = 8, height = 6)
+plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.25, rel_widths = c(0.55, 0.45))
+dev.off()
+png("FinalFigs/FigureS2.png", width = 8, height = 6, units = "in", res = 300)
+plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.25, rel_widths = c(0.55, 0.45))
+dev.off()
+
+
+
+#### Testing ####
+# For supplementary table, make different phyla subsets to test and get metrics
+# Elías already built the "common" phyla and "uncommon" phyla
+# Here build an "all" phyla, and also each of the big 4 individually
+oxygen_pfams <- read.csv("data/Oxygen_pfams.csv")
+tax <- read.csv("data/bacdive_gtdb_metadata_5520.csv") %>%
+  rename(Accession = ncbi_genbank_assembly_accession) %>%
+  dplyr::select(Accession, Phylum) %>%
+  rename(phylum = Phylum)
+all <- read.csv("data/oxygen_pfams_data.csv") %>%
+  rename("Accession" = "X") %>%
+  left_join(., tax, by = "Accession") %>%
+  #dplyr::select(Accession, phylum, all_of(oxygen_pfams$Pfam_full), Oxygen2)
+  dplyr::select(Accession, phylum, everything()) %>%
+  mutate(Oxygen2 = gsub("anaerobic", 1, Oxygen2)) %>%
+  mutate(Oxygen2 = gsub("aerobic", 0, Oxygen2)) %>%
+  mutate(Oxygen2 = as.integer(Oxygen2))
+common <- all %>%
+  filter(phylum %in% c("Pseudomonadota", "Actinomycetota", "Bacillota", "Bacteroidota"))
+pseudo <- all %>%
+  filter(phylum %in% c("Pseudomonadota"))
+actino <- all %>%
+  filter(phylum %in% c("Actinomycetota"))
+bacill <- all %>%
+  filter(phylum %in% c("Bacillota"))
+bacter <- all %>%
+  filter(phylum %in% c("Bacteroidota"))
+uncommon <- all %>%
+  filter(phylum %notin% c("Pseudomonadota", "Actinomycetota", "Bacillota", "Bacteroidota"))
+
+# write.csv(all, "data/test_all.csv", row.names = FALSE)
+# write.csv(common, "data/test_common.csv", row.names = FALSE)
+# write.csv(pseudo, "data/test_pseudo.csv", row.names = FALSE)
+# write.csv(actino, "data/test_actino.csv", row.names = FALSE)
+# write.csv(bacill, "data/test_bacill.csv", row.names = FALSE)
+# write.csv(bacter, "data/test_bacter.csv", row.names = FALSE)
+# write.csv(uncommon, "data/test_uncommon.csv", row.names = FALSE)
+
+# Make Table S5 from validation results
+v <- read.csv("data/validation_results.csv") %>%
+  group_by(phylum) %>%
+  summarize(nT = sum(correct == TRUE),
+            nF = sum(correct == FALSE)) %>%
+  ungroup() %>%
+  mutate(n = nT + nF) %>%
+  mutate(Accuracy = round(nT/n*100, digits = 2)) %>%
+  dplyr::select(phylum, Accuracy) %>%
+  arrange(desc(Accuracy)) %>%
+  rename(Phylum = phylum)
+# write_xlsx(v, "~/Desktop/Fierer/AEGIS/Oxygen/Manuscript/TableS5.xlsx",
+#            format_headers = FALSE)
+
+
+#### End Script ####

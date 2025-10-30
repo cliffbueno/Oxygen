@@ -5,60 +5,42 @@
 library(tidyverse)
 
 # Working directory
-setwd("~/Desktop/Fierer/AEGIS/Oxygen")
+setwd("~/Documents/GitHub/Oxygen/")
 
 # The 20 Pfams
-oxygen_pfams <- read.csv("Oxygen_pfams.csv")
+oxygen_pfams <- read.csv("data/Oxygen_pfams.csv")
 
 # Gene IDs for all of the variants of each Pfam
-map <- read.table("pfam_headers_table_fixed.txt", sep = "\t", header = TRUE, 
+map <- read.table("data/pfam_headers_table.txt", sep = "\t", header = TRUE, 
                   stringsAsFactors = FALSE, quote = "") %>%
   separate(Header, into = c("Header", "Junk"), sep = " ") %>%
-  select(-Junk)
+  select(-Junk) %>%
+  filter(!duplicated(Header))
 table(map$Pfam) # Number of variants per Pfam
 
 # Mean gene lengths for the 20 Pfams
-pfam_gene_length <- read.delim("pfam_prot_rev/pfam_mean_lengths.tsv") %>%
-  separate(Pfam, sep = "-", into = c("Junk1", "Junk2", "Pfam")) %>%
-  mutate(Gene.length = MeanLength * 3) %>%
-  dplyr::select(Pfam, Gene.length)
+pfam_gene_length <- read.delim("data/pfam_lengths.tsv")
 
 
 
 #### 2. Parse Diamond ####
 # Trial run on the first table 
-d <- read.table("diamond_output_sim/sample0_01_trimmed_ann") %>%
+d <- read.table("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_sim/sample0_01_trimmed_ann") %>%
   set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
               "sstart",	"send",	"evalue",	"bitscore")) %>%
   filter(pident >= 60) %>%
   filter(evalue < 0.001) %>%
   filter(bitscore >= 50) %>%
-  mutate(Gene.length = abs(send - sstart)) %>%
   left_join(., map, by = c("sseqid" = "Header"))
-hist(d$Gene.length)
-d$sseqid[1244] # 2 pfams (cytochrome c)
 table(d$Pfam) # PF05425 PF05721 are missing! (aerobic)
-
-mean.gene.lengths <- d %>% group_by(Pfam) %>% 
-  summarise_at(vars(Gene.length), list(name = mean)) %>%
-  set_names(c("Pfam", "Gene.length"))
 
 gene.hits = d %>% 
   group_by(Pfam) %>% 
   summarise(total_count=n())
 
-# Josep method
-# mean.gene.lengths <- d %>% group_by(Pfam) %>% 
-#   summarise_at(vars(Gene.length), list(name = mean)) %>%
-#   set_names(c("Pfam", "Gene.length"))
-# gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
-#   mutate(RPK = total_count / (1000*Gene.length)) %>%
-#   left_join(., oxygen_pfams, by = "Pfam")
-
-# My method
 gene.hit.length.correction <- gene.hits %>%
   left_join(., pfam_gene_length, by = "Pfam") %>%
-  mutate(RPK = total_count / (1000*Gene.length)) %>%
+  mutate(RPK = total_count / (Gene.length/1000)) %>%
   left_join(., oxygen_pfams, by = "Pfam")
 
 oxygen_rpk <- gene.hit.length.correction %>%
@@ -72,7 +54,7 @@ ratio
 
 #### _5 mil ####
 # Now loop through all 18 simulations of 5 million seq depth
-setwd("diamond_output_sim/")
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_sim")
 files <- list.files()
 length(files)
 results <- as.data.frame(matrix(nrow = length(files), ncol = 2, NA)) %>%
@@ -81,7 +63,6 @@ results <- as.data.frame(matrix(nrow = length(files), ncol = 2, NA)) %>%
                          60, 60, 60, 80, 80, 80)) %>%
   mutate(replicate = c(rep(c(1, 2, 3), 6)))
   
-
 for (i in 1:length(files)) {
   
   # Add filename to the dataframe
@@ -102,13 +83,9 @@ for (i in 1:length(files)) {
     group_by(Pfam) %>% 
     summarise(total_count=n())
   
-  # Correct for gene length (reads per kilobase)
-  # gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
-  #   mutate(RPK = total_count / (1000*Gene.length)) %>%
-  #   left_join(., oxygen_pfams, by = "Pfam")
   gene.hit.length.correction <- gene.hits %>%
     left_join(., pfam_gene_length, by = "Pfam") %>%
-    mutate(RPK = total_count / (1000*Gene.length)) %>%
+    mutate(RPK = total_count / (Gene.length/1000)) %>%
     left_join(., oxygen_pfams, by = "Pfam")
   
   # Now sum by aerobe indicator vs anaerobe indicator
@@ -125,13 +102,13 @@ for (i in 1:length(files)) {
 }
 
 warnings()
-setwd("../")
+setwd("~/Documents/GitHub/Oxygen/")
 
 
 
 #### _25 mil ####
 # Now loop through all 18 simulations of 25 million seq depth
-setwd("diamond_output_sim25/")
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_sim25/")
 files <- list.files()
 length(files)
 results25 <- as.data.frame(matrix(nrow = length(files), ncol = 2, NA)) %>%
@@ -139,7 +116,6 @@ results25 <- as.data.frame(matrix(nrow = length(files), ncol = 2, NA)) %>%
   mutate(perc_aerobe = c(0, 0, 0, 100, 100, 100, 20, 20, 20, 40, 40, 40,
                          60, 60, 60, 80, 80, 80)) %>%
   mutate(replicate = c(rep(c(1, 2, 3), 6)))
-
 
 for (i in 1:length(files)) {
   
@@ -161,13 +137,9 @@ for (i in 1:length(files)) {
     group_by(Pfam) %>% 
     summarise(total_count=n())
   
-  # Correct for gene length (reads per kilobase)
-  # gene.hit.length.correction <- merge(mean.gene.lengths, gene.hits, by = "Pfam") %>%
-  #   mutate(RPK = total_count / (1000*Gene.length)) %>%
-  #   left_join(., oxygen_pfams, by = "Pfam")
   gene.hit.length.correction <- gene.hits %>%
     left_join(., pfam_gene_length, by = "Pfam") %>%
-    mutate(RPK = total_count / (1000*Gene.length)) %>%
+    mutate(RPK = total_count / (Gene.length/1000)) %>%
     left_join(., oxygen_pfams, by = "Pfam")
   
   # Now sum by aerobe indicator vs anaerobe indicator
@@ -184,7 +156,7 @@ for (i in 1:length(files)) {
 }
 
 warnings()
-setwd("../")
+setwd("~/Documents/GitHub/Oxygen/")
 
 
 
@@ -218,7 +190,7 @@ results25$Depth <- "26 to 41 million reads"
 c <- rbind(results, results25) %>%
   mutate(Depth = factor(Depth, levels = c("5 to 8 million reads", "26 to 41 million reads")))
 
-pdf("FinalFigs/FigureS1.pdf", width = 7, height = 5)
+pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
 ggplot(c, aes(perc_aerobe, ratio)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth() +
@@ -232,7 +204,7 @@ ggplot(c, aes(perc_aerobe, ratio)) +
         strip.text = element_text(size = 14))
 dev.off()
 
-png("FinalFigs/FigureS1.png", width = 7, height = 5, units = "in", res = 300)
+png("FinalFigs/FigureS4.png", width = 7, height = 5, units = "in", res = 300)
 ggplot(c, aes(perc_aerobe, ratio)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth() +
@@ -245,6 +217,7 @@ ggplot(c, aes(perc_aerobe, ratio)) +
         axis.title = element_text(size = 14),
         strip.text = element_text(size = 14))
 dev.off()
+range(c$ratio)
 
 # Relationship is not linear and exponential doesn't quite fit right either
 # Need GAM
@@ -259,4 +232,4 @@ predicted_y <- predict(gam_model, newdata = new_data)
 predicted_y
 
 # Save the GAM model
-saveRDS(gam_model, "gam_model.rds")
+saveRDS(gam_model, "data/gam_model.rds")

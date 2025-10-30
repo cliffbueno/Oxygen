@@ -1,21 +1,21 @@
-Pfam,Oxygen,Other_Taxa
-PF00042,aerobic,"Plant, Animal"
-PF00115,aerobic,"Plant, Animal"
-PF00116,aerobic,"Plant, Animal"
-PF00296,aerobic,Archaea
-PF00510,aerobic,"Plant, Animal, Fungus"
-PF00916,aerobic,"Plant, Animal, Fungus"
-PF01152,aerobic,"Plant, Protist"
-PF01521,aerobic,"Plant, Animal, Fungus"
-PF01871,anaerobic,"Plant, Animal, Fungus"
-PF02579,anaerobic,Archaea
-PF02906,anaerobic,"Plant, Animal, Fungus"
-PF03063,anaerobic,Archaea
-PF05425,aerobic,None
-PF05721,aerobic,"Plant, Animal, Fungus"
-PF08530,aerobic,None
-PF10371,anaerobic,None
-PF13597,anaerobic,Archaea
-PF16870,aerobic,"Animal, Fungus"
-PF17773,aerobic,"Plant, Animal"
-PF17910,anaerobic,Archaea
+Pfam,Pfam_full,Oxygen,Other_Taxa
+PF00042,PF00042.28,aerobic,"Plant, Animal"
+PF00115,PF00115.25,aerobic,"Plant, Animal"
+PF00116,PF00116.26,aerobic,"Plant, Animal"
+PF00296,PF00296.26,aerobic,Archaea
+PF00510,PF00510.24,aerobic,"Plant, Animal, Fungus"
+PF00916,PF00916.26,aerobic,"Plant, Animal, Fungus"
+PF01152,PF01152.27,aerobic,"Plant, Protist"
+PF01521,PF01521.26,aerobic,"Plant, Animal, Fungus"
+PF01871,PF01871.22,anaerobic,"Plant, Animal, Fungus"
+PF02579,PF02579.22,anaerobic,Archaea
+PF02906,PF02906.19,anaerobic,"Plant, Animal, Fungus"
+PF03063,PF03063.25,anaerobic,Archaea
+PF05425,PF05425.18,aerobic,None
+PF05721,PF05721.19,aerobic,"Plant, Animal, Fungus"
+PF08530,PF08530.16,aerobic,None
+PF10371,PF10371.14,anaerobic,None
+PF13597,PF13597.11,anaerobic,Archaea
+PF16870,PF16870.10,aerobic,"Animal, Fungus"
+PF17773,PF17773.7,aerobic,"Plant, Animal"
+PF17910,PF17910.6,anaerobic,Archaea
