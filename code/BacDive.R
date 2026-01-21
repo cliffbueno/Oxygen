@@ -1,14 +1,16 @@
 # Assemble BacDive Dataset and Genome Download List
-# By Cliff Bueno de Mesquita, AEGIS, May 2025
+# By Cliff Bueno de Mesquita, Fierer Lab, May 2025
 
 #### Setup ####
 # Libraries
 library(tidyverse)
 #install.packages("BacDive", repos="http://R-Forge.R-project.org")
-library(BacDive)
+#library(BacDive)
 library(ggrepel)
 library(ggbeeswarm)
+library(cowplot)
 `%notin%` <- Negate(`%in%`)
+setwd("~/Documents/GitHub/Oxygen/")
 
 # Test BacDive
 bacdive <- open_bacdive("cliff.buenodemesquita@colorado.edu", "enterpassword")
@@ -178,6 +180,7 @@ d_gtdb <- d_gtdb %>%
   separate(gtdb_taxonomy, remove = F, into = c("Domain", "Phylum", "Class", "Order", "Family",
                                                "Genus", "Species"), sep = ";")
 #write.csv(d_gtdb, "bacdive_gtdb_metadata_5520.csv")
+d_gtdb <- read.csv("data/bacdive_gtdb_metadata_5520.csv")
 phylum_counts <- as.data.frame(table(d_gtdb$Phylum)) %>%
   arrange(desc(Freq)) %>%
   mutate(Var1 = factor(Var1, levels = Var1))
@@ -210,7 +213,7 @@ dev.off()
 phy_fig <- ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
   geom_bar(stat = "identity") +
   geom_text(data = phylum_counts,
-            aes(x = Var1, y = Freq + 150, label = Freq), size = 2.5, angle = 45, 
+            aes(x = Var1, y = Freq + 150, label = Freq), size = 3, angle = 45, 
             vjust = 1, inherit.aes = F) +
   labs(x = "Phylum", y = "Genomes") +
   scale_fill_manual(values = c("red", "blue")) +
@@ -218,8 +221,8 @@ phy_fig <- ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
                      limits = c(0, 3000)) +
   theme_classic() +
   theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 14),
         legend.title = element_blank(),
         legend.position = "inside",
         legend.position.inside = c(1,1),
@@ -446,7 +449,7 @@ pfams_an_50 <- pfams_an_prev %>%
   filter(An_Perc >= 50)
 
 # Elias model results top 20
-eli <- read.csv("data/selected_important_features.csv") %>%
+pfam_info <- read.csv("data/selected_important_features.csv") %>%
   dplyr::select(Feature, Aggregated_Score) %>%
   set_names(c("Pfam", "SHAP")) %>%
   left_join(., pfams_aer_prev, by = "Pfam") %>%
@@ -457,7 +460,7 @@ eli <- read.csv("data/selected_important_features.csv") %>%
   mutate(PfamCode = substr(Pfam, 1, 7))
 
 pdf("FinalFigs/Figure2.pdf", width = 7, height = 5)
-ggplot(eli, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
+ggplot(pfam_info, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
   geom_point(size = 3, pch = 16) + 
   geom_text_repel(aes(x = Aer_Perc, y = An_Perc, label = PfamCode),
                   inherit.aes = FALSE, size = 2) +
@@ -475,7 +478,7 @@ ggplot(eli, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
         legend.background = element_blank())
 dev.off()
 png("FinalFigs/Figure2.png", width = 7, height = 5, units = "in", res = 300)
-ggplot(eli, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
+ggplot(pfam_info, aes(x = Aer_Perc, y = An_Perc, colour = Indicator)) +
   geom_point(size = 3, pch = 16) + 
   geom_text_repel(aes(x = Aer_Perc, y = An_Perc, label = PfamCode),
                   inherit.aes = FALSE, size = 2) +
@@ -498,26 +501,49 @@ dev.off()
 #### SHAP ####
 # Plot the SHAP scores for the top 20 genes
 # For supplementary figure
-eli_sort <- eli %>%
-  arrange(Indicator, SHAP) %>%
-  mutate(Ind = gsub(" indicator", "", Indicator))
+# pfam_info <- read.csv("data/selected_important_features.csv") %>%
+#   dplyr::select(Feature, Aggregated_Score) %>%
+#   set_names(c("Pfam", "SHAP")) %>%
+#   left_join(., pfams_aer_prev, by = "Pfam") %>%
+#   left_join(., pfams_an_prev, by = "Pfam") %>%
+#   mutate(Indicator = ifelse(Aer_Perc > 50, 
+#                             "Aerobic indicator", 
+#                             "Anaerobic indicator")) %>%
+#   mutate(PfamCode = substr(Pfam, 1, 7))
+# pfam_info_sorted <- pfam_info %>%
+#   arrange(Indicator, SHAP) %>%
+#   mutate(Ind = gsub(" indicator", "", Indicator))
+# saveRDS(pfam_info_sorted, "data/pfam_info_sorted.rds")
+pfam_info_sorted <- readRDS("data/pfam_info_sorted.rds")
 s <- read.csv("data/ensemble_shap_values_Class_1.csv")
 # These are the 1104 genomes used for testing (20% of 5520)
 table(s$true_class) # 845 0 (aerobe) and 259 1 (anaerobe)
+# Note - the figure is colored by gene presence/absence NOT genome aerobe vs anaerobe!
+# So, need to pull in and merge those data.
+# Note - Careful with the index matching!
+g <- read.csv("data/genes_testset.csv") %>%
+  dplyr::select(-Oxygen2) %>%
+  set_names(substr(names(.), 1, 7)) %>%
+  pivot_longer(cols = 2:21) %>%
+  mutate(Genome_Pfam = paste(X, name, sep = "_")) %>%
+  rename(PA = value) %>%
+  dplyr::select(Genome_Pfam, PA)
 s <- read.csv("data/ensemble_shap_values_Class_1.csv") %>%
-  dplyr::select(-X, -sample_idx) %>%
-  pivot_longer(cols = c(2:21)) %>%
+  pivot_longer(cols = c(4:23)) %>%
   mutate(true_class = as.factor(true_class),
          name = substr(name, 1, 7)) %>%
-  left_join(., eli_sort, by = c("name" = "PfamCode")) %>%
+  left_join(., pfam_info_sorted, by = c("name" = "PfamCode")) %>%
   mutate(name = factor(name,
-                       levels = eli_sort$PfamCode))
-figs2a <- ggplot(s, aes(name, value, colour = true_class)) +
+                       levels = pfam_info_sorted$PfamCode)) %>%
+  mutate(Genome_Pfam = paste(X, name, sep = "_")) %>%
+  left_join(., g, by = "Genome_Pfam") %>%
+  mutate(PA = as.factor(PA))
+figs2a <- ggplot(s, aes(name, value, colour = PA)) +
   geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_quasirandom(pch = 16, alpha = 0.5, size = 1) +
+  geom_beeswarm(method = "swarm", cex = 0.07, size = 1, priority = "density") +
   labs(x = NULL, y = "SHAP value", colour = NULL) +
-  scale_colour_manual(values = c("#F8766D", "#619CFF"),
-                      labels = c("Aerobe", "Anaerobe")) +
+  scale_colour_manual(values = c("blue", "red"),
+                      labels = c("Absent", "Present")) +
   facet_grid(Ind ~ 1, space = "free", scales = "free_y") +
   coord_flip() +
   guides(colour = guide_legend(override.aes = list(alpha = 1, size = 3))) +
@@ -557,11 +583,11 @@ figs2b <- ggplot(df, aes(x = TClass, y = PClass)) +
         plot.margin = margin(0.1,0.1,0.1,0.1))
 figs2b
 
-pdf("FinalFigs/FigureS2.pdf", width = 8, height = 6)
-plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.25, rel_widths = c(0.55, 0.45))
+pdf("FinalFigs/FigureS2.pdf", width = 8, height = 7)
+plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.2, rel_widths = c(0.55, 0.45))
 dev.off()
-png("FinalFigs/FigureS2.png", width = 8, height = 6, units = "in", res = 300)
-plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.25, rel_widths = c(0.55, 0.45))
+png("FinalFigs/FigureS2.png", width = 8, height = 7, units = "in", res = 300)
+plot_grid(figs2a, figs2b, labels = "auto", label_x = 0.2, rel_widths = c(0.55, 0.45))
 dev.off()
 
 

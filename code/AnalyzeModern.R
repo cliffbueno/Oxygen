@@ -1,14 +1,18 @@
 # Calculate % aerobic bacteria in modern metagenomes
 # by Cliff Bueno de Mesquita, Fierer Lab, 2025
-# for AEGIS
 # Use the GAM model from the simulated metagenomes
+# Ended up doing 4 analyses - cross habitat, Australian soil, U.S. soil, human gut
 
 # Contents:
 # 1. Setup
 # 2. Parse Diamond
 # 3. Analyze
+## Cross habitat validation
 # 4. Test Seq Depth
 # 5. Application
+## Australian soil
+## U.S. soil
+## Human gut
 
 
 
@@ -35,10 +39,12 @@ library(broom)
 library(gamlss)
 library(mctoolsr)
 library(tidytext)
+library(multcompView)
 library(ozmaps)
 library(sf)
 library(ggspatial)
 library(urbnmapr)
+library(lme4)
 library(khroma) # According to Paul Tol’s technical note, the bright, contrast, vibrant and muted color schemes are color-blind safe.
 highcontrast <- color("high contrast")
 highcontrast(3)[1:3]
@@ -103,13 +109,29 @@ gam_model <- readRDS("data/gam_model.rds")
 
 #### 2. Parse Diamond ####
 #### _Test ####
-# Trial run on the first table 
+# Trial run on the first table
+d <- read.table("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_modern/19485_R1_ann.tsv") %>%
+  set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
+              "sstart",	"send",	"evalue",	"bitscore"))
+summary(d$length)
+summary(d$pident)
+summary(d$evalue)
+summary(d$bitscore)
+hist(d$length)
+hist(d$pident)
+hist(d$evalue)
+hist(d$bitscore)
+d_highe <- d %>%
+  filter(evalue > 0.00001)
+hist(d_highe$pident)
+hist(d_highe$bitscore) # Anything with e > 0.00001 has bitscore < 50 anyways
 d <- read.table("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_modern/19485_R1_ann.tsv") %>%
   set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
               "sstart",	"send",	"evalue",	"bitscore")) %>%
   filter(pident >= 60) %>%
-  filter(evalue < 0.001) %>%
-  filter(bitscore >= 50) %>%
+  filter(evalue < 1e-10) %>%
+  filter(bitscore >= 60) %>%
+  filter(length >= 40) %>%
   left_join(., map, by = c("sseqid" = "Header"))
 table(d$Pfam) # PF05425 (aerobic) and PF13597 (anaerobic) are missing!
 
@@ -127,7 +149,12 @@ oxygen_rpk <- gene.hit.length.correction %>%
   summarize(RPKsum = sum(RPK))
 
 ratio <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
-
+ratio # 16.5512 with default 60, 1e-3, 50
+# Test some other cutoffs
+# 16.5512 with 60, 1e-5, 50
+# 16.48 with 60, 1e-5, 60
+# 14.84 with 70, 1e-5, 60
+# 16.37 with 60, 1e-10, 60, 40 (additional length parameter)
 new_data <- data.frame(ratio = ratio)  # or a sequence of values
 predicted_y <- predict(gam_model, newdata = new_data)
 predicted_y # 81.93% aerobe (oldold RPK was 79.56%, old map was 82.32%, old RPK was 81.74%)
@@ -168,6 +195,9 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
     filter(pident >= 60) %>%
     filter(evalue < 0.001) %>%
     filter(bitscore >= 50) %>%
@@ -208,9 +238,76 @@ results$Per_aerobe <- predict(gam_model, newdata = new_data)
 results <- results %>%
   mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
   mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
-  mutate(Per_aerobe = ifelse(ratio > 35, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(ratio > 30, 100, Per_aerobe)) %>%
   mutate(sampleID = gsub("_R1_ann.tsv", "", filename))
 #saveRDS(results, "data/results_modern.rds")
+
+
+
+#### __Stringent ####
+# Rerun with stringent cutoffs
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_modern/")
+files <- list.files()
+length(files)
+results <- as.data.frame(matrix(nrow = length(files), ncol = 5, NA)) %>%
+  set_names(c("filename", "ratio", "Pfams", "Aerobe_Pfams", "Anaerobe_Pfams"))
+
+for (i in 1:length(files)) {
+  
+  # Add filename to the dataframe
+  results$filename[i] <- files[i]
+  
+  # Read in and filter the data
+  d <- read.table(files[i]) %>%
+    set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
+                "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
+    filter(pident >= 60) %>%
+    filter(evalue < 1e-10) %>%
+    filter(bitscore >= 60) %>%
+    filter(length >= 40) %>%
+    left_join(., map, by = c("sseqid" = "Header"))
+  
+  # Number of the 20 Pfams found
+  pf_count <- as.data.frame(table(d$Pfam)) 
+  results$Pfams[i] <- nrow(pf_count)
+  results$Aerobe_Pfams[i] <- sum(pf_count$Var1 %in% aerobic_pfams$Pfam)
+  results$Anaerobe_Pfams[i] <- sum(pf_count$Var1 %in% anaerobic_pfams$Pfam)
+  
+  # Gene hits
+  gene.hits = d %>% 
+    group_by(Pfam) %>% 
+    summarise(total_count=n())
+  
+  gene.hit.length.correction <- gene.hits %>%
+    left_join(., pfam_gene_length, by = "Pfam") %>%
+    mutate(RPK = total_count / (Gene.length/1000)) %>%
+    left_join(., oxygen_pfams, by = "Pfam")
+  
+  # Now sum by aerobe indicator vs anaerobe indicator
+  oxygen_rpk <- gene.hit.length.correction %>%
+    group_by(Oxygen) %>%
+    summarize(RPKsum = sum(RPK))
+  
+  # Calculate the ratio and add it to the dataframe
+  results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
+  
+  # Status
+  message("Done processing table ", i)
+  
+}
+warnings()
+setwd("~/Documents/GitHub/Oxygen/")
+new_data <- data.frame(ratio = results$ratio)
+results$Per_aerobe <- predict(gam_model, newdata = new_data)
+results <- results %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(ratio > 30, 100, Per_aerobe)) %>%
+  mutate(sampleID = gsub("_R1_ann.tsv", "", filename))
+#saveRDS(results, "data/results_modern_stringent.rds")
 
 
 
@@ -220,7 +317,7 @@ meta <- read_xlsx("data/ModernMetaG.xlsx")
 length(unique(meta$sampleID)) # n = 278
 results <- readRDS("data/results_modern.rds")
 hist(results$ratio)
-sum(results$ratio > 35)
+sum(results$ratio > 30)
 length(unique(results$sampleID)) # 278
 read_counts <- read.delim("data/read_counts_table.tsv") %>%
   mutate(Per_Bact = Bact_Reads/QC_reads)
@@ -268,36 +365,38 @@ sd(d_plot$Bact_Reads) # 14609572
 table(d_plot$Habitat3)
 table(d_plot$Type)
 m <- aov(Per_aerobe ~ Habitat3, data = d_plot)
-summary(m) # 15 302114   20141   212.7 <2e-16 ***
-ggplot(d_plot, aes(Habitat, Per_aerobe)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1))
-ggplot(d_plot, aes(Habitat2, Per_aerobe)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1))
-fig3 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
+summary(m) # 15 290431   19362     213 <2e-16 ***
+tukey_result <- TukeyHSD(m)
+tukey_pvals <- tukey_result$Habitat3[, "p adj"]
+letters <- multcompLetters(tukey_pvals)$Letters
+letter_df <- data.frame(Habitat3 = names(letters),
+                        letter = letters,
+                        y_pos = 105)
+fig4 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = F, aes(colour = Type)) +
   geom_jitter(pch = 21, size = 3, alpha = 0.8, width = 0.25, aes(fill = Type)) +
+  geom_text(data = letter_df, aes(x = Habitat3, y = y_pos, label = letter),
+            size = 5, vjust = 0) +
   scale_colour_manual(values = c("#88CCEE", "#44AA99", "#332288", "#DDCC77", "brown1", 
                                  "#882255")) +
   scale_fill_manual(values = c("#88CCEE", "#44AA99", "#332288", "#DDCC77", "brown1", 
                                "#882255")) +
-  labs(x = NULL, y = "Predicted aerobe relative abundance (%)") +
+  labs(x = NULL, y = "Predicted aerobes (%)") +
   theme_classic() +
   theme(legend.position = "inside",
         legend.position.inside = c(1, 0),
         legend.justification.inside = c(1, 0),
         legend.background = element_blank(),
         legend.title = element_blank(),
-        axis.text.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-        axis.title = element_text(size = 12))
-fig3
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        axis.title = element_text(size = 14))
+fig4
 pdf("FinalFigs/Figure3.pdf", width = 7, height = 5)
-fig3
+fig4
 dev.off()
 png("FinalFigs/Figure3.png", width = 7, height = 5, units = "in", res = 300)
-fig3
+fig4
 dev.off()
 
 # Reads
@@ -396,10 +495,12 @@ p1 <- ggplot(bs, aes(O2_H2S, Per_aerobe)) +
                 labels = c("0.001", "0.01", "0.1", "1", "10", "100", "1000")) +
   ggtitle("a) Black Sea water") +
   theme_bw() +
-  theme(axis.text = element_text(size = 10),
-        axis.title = element_text(size = 12),
+  theme(axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 14),
         panel.grid.minor = element_blank(),
-        panel.grid.major.x = element_blank())
+        panel.grid.major.x = element_blank(),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 p1
 
 
@@ -434,11 +535,13 @@ p2 <- ggplot(baltic, aes(Oxygen, Per_aerobe)) +
   ggtitle("b) Baltic Sea sediment") +
   theme_bw() +
   theme(axis.text = element_text(size = 10),
-        axis.title = element_text(size = 12),
+        axis.title = element_text(size = 14),
         axis.title.y = element_blank(),
         axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
         panel.grid.minor = element_blank(),
-        panel.grid.major.x = element_blank())
+        panel.grid.major.x = element_blank(),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 p2
 
 
@@ -477,11 +580,13 @@ p3 <- ggplot(lake, aes(Depth_cat, Per_aerobe)) +
   ggtitle("c) Lake Tanganyika water") +
   theme_bw() +
   theme(axis.text = element_text(size = 10),
-        axis.title = element_text(size = 12),
+        axis.title = element_text(size = 14),
         axis.title.y = element_blank(),
         axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
         panel.grid.minor = element_blank(),
-        panel.grid.major.x = element_blank())
+        panel.grid.major.x = element_blank(),
+        plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 p3
 
 ggplot(lake, aes(Depth_cm/100, Per_aerobe)) +
@@ -501,13 +606,41 @@ ggplot(lake, aes(Oxygen, Per_aerobe)) +
   theme(axis.text = element_text(size = 10),
         axis.title = element_text(size = 12))
 
-fig2 <- plot_grid(p1, p2, p3, ncol = 3, align = "h",
-                  rel_widths = c(0.35, 0.3, 0.3))
-pdf("FinalFigs/Figure2.pdf", width = 8, height = 4)
-fig2
+fig5 <- plot_grid(p1, p2, p3, ncol = 3, align = "h",
+                  rel_widths = c(0.36, 0.29, 0.29))
+pdf("FinalFigs/Figure4.pdf", width = 8, height = 4)
+fig5
 dev.off()
-png("FinalFigs/Figure2.png", width = 8, height = 4, units = "in", res = 300)
-fig2
+png("FinalFigs/Figure4.png", width = 8, height = 4, units = "in", res = 300)
+fig5
+dev.off()
+
+
+
+# Compare cutoffs
+results_default <- readRDS("data/results_modern.rds")
+results_stringent <- readRDS("data/results_modern_stringent.rds")
+results_compare <- results_stringent %>%
+  filter(!is.na(Per_aerobe)) %>%
+  left_join(., results_default, by = "filename") %>%
+  filter(sampleID.x %in% d_plot$sampleID)
+m <- lm(Per_aerobe.x ~ Per_aerobe.y, data = results_compare)
+summary(m)
+figs4 <- ggplot(results_compare, aes(Per_aerobe.y, Per_aerobe.x)) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  geom_point(size = 3, pch = 16, alpha = 0.75) +
+  geom_smooth(method = "lm") +
+  labs(x = "Predicted % aerobes (default cutoffs)",
+       y = "Predicted % aerobes (stringent cutoffs)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12))
+figs4
+pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
+figs4
+dev.off()
+png("FinalFigs/FigureS4.png", width = 7, height = 5, units = "in", res = 300)
+figs4
 dev.off()
 
 
@@ -544,6 +677,9 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
     filter(pident >= 60) %>%
     filter(evalue < 0.001) %>%
     filter(bitscore >= 50) %>%
@@ -585,7 +721,7 @@ results$Per_aerobe <- predict(gam_model, newdata = new_data)
 results <- results %>%
   mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
   mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
-  mutate(Per_aerobe = ifelse(ratio > 35, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(ratio > 30, 100, Per_aerobe)) %>%
   mutate(sampleID = gsub("_R1_ann.tsv", "", filename))
 #saveRDS(results, "data/results_seqdepth.rds")
 
@@ -601,18 +737,8 @@ seqdepth <- readRDS("data/results_seqdepth.rds") %>%
   mutate(Habitat = gsub("SRR7008372", "Deep Lake", Habitat)) %>%
   mutate(Habitat = factor(Habitat, levels = c("Surface Lake", "Deep Lake", "Gut"))) %>%
   arrange(Habitat, SeqDepth)
-seqdepth2 <- read.table("~/Desktop/per_aerobe_predictions.tsv", header = T) %>%
-  separate(SampleID, into = c("sampleID", "SeqDepth"), sep = "_") %>%
-  mutate(SeqDepth = as.numeric(SeqDepth)) %>%
-  mutate(Habitat = gsub("SRR10680549", "Gut", sampleID)) %>%
-  mutate(Habitat = gsub("SRR7053051", "Surface Lake", Habitat)) %>%
-  mutate(Habitat = gsub("SRR7008372", "Deep Lake", Habitat)) %>%
-  mutate(Habitat = factor(Habitat, levels = c("Surface Lake", "Deep Lake", "Gut"))) %>%
-  arrange(Habitat, SeqDepth)
-plot(seqdepth$ratio, seqdepth2$ratio)
-  
-pdf("InitialFigs/SeqDepth_Aerobes.pdf", width = 8, height = 4)
-ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
+
+figs3 <- ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
   geom_point(size = 4) +
   geom_line() +
   scale_x_continuous(trans = "log2",
@@ -624,11 +750,17 @@ ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
        y = "Predicted % aerobes") +
   scale_colour_manual(values = highcontrast(3)[1:3]) +
   theme_bw() +
-  theme(axis.text = element_text(size = 10),
-        axis.title = element_text(size = 12),
+  theme(axis.text = element_text(size = 11),
+        axis.title = element_text(size = 14),
         panel.grid.minor = element_blank(),
         legend.position = "inside",
         legend.position.inside = c(0.9, 0.3))
+figs3
+pdf("FinalFigs/FigureS3.pdf", width = 8, height = 4)
+figs3
+dev.off()
+png("FinalFigs/FigureS3.png", width = 8, height = 4, units = "in", res = 300)
+figs3
 dev.off()
 
 pdf("InitialFigs/SeqDepth_Ratio.pdf", width = 8, height = 4)
@@ -741,6 +873,9 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
     filter(pident >= 60) %>%
     filter(evalue < 0.001) %>%
     filter(bitscore >= 50) %>%
@@ -782,7 +917,7 @@ results$Per_aerobe <- predict(gam_model, newdata = new_data)
 results <- results %>%
   mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
   mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
-  mutate(Per_aerobe = ifelse(ratio > 35, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(ratio > 30, 100, Per_aerobe)) %>%
   mutate(sampleID = gsub("_R1_ann.tsv", "", filename)) %>%
   separate(filename, into = c("sampleID", "Junk1", "Junk2", "Junk3"),
            sep = "_") %>%
@@ -791,12 +926,12 @@ results <- results %>%
 
 # Analyze
 results <- readRDS("data/results_soil.rds")
-range(results$Per_aerobe) # 64% to 100%
+range(results$Per_aerobe) # 60% to 100%
 hist(results$Per_aerobe)
-mean(results$Per_aerobe) # 97.16
+mean(results$Per_aerobe) # 94.65
 median(results$Per_aerobe) # 100
-sd(results$Per_aerobe) # 6.26
-sum(results$Per_aerobe == 100) # 243 with 100, 88 with anaerobes
+sd(results$Per_aerobe) # 8.60
+sum(results$Per_aerobe == 100) # 204 with 100, 127 with anaerobes
 aus <- read_delim("~/Documents/GitHub/AussieStrains/data/metadata_331.txt") %>%
   mutate(sampleID = as.character(sampleID)) %>%
   left_join(., results, by = "sampleID") %>%
@@ -866,12 +1001,13 @@ bestM <- bestglm(Xy,
                  weights = NULL, 
                  nvmax = "default", 
                  RequireFullEnumerationQ = FALSE)
-bestM # P, Elevation, Temp.
+bestM # Clay, NO3, Elevation, Temp.
 # Estimate Std. Error    t value      Pr(>|t|)
-# (Intercept) 97.537932  0.4848727 201.161946 2.366554e-182
-# P            1.615514  0.9565573   1.688883  9.334754e-02
-# Elevation    1.662556  0.7100120   2.341589  2.053527e-02
-# Temp.        1.603956  0.6270567   2.557912  1.153551e-02
+# (Intercept) 94.3874355  0.7394646 127.642941 1.774397e-152
+# ClaySilt     0.7889901  0.4834196   1.632102  1.047983e-01
+# NO3         -2.7863946  1.5239979  -1.828345  6.952487e-02
+# Elevation    2.1849273  1.0881129   2.007997  4.647569e-02
+# Temp.        1.8376798  0.9184831   2.000777  4.725767e-02
 bestM$BestModels
 
 # Linear Models
@@ -893,7 +1029,7 @@ for (i in 1:11) {
   models$R[i] <- s$r.squared
   models$p[i] <- s$coefficients[2,4]
 }
-# ClaySilt, H2O, and C are significant
+# ClaySilt, Aridity, Precip, H2O, pH, and C are significant
 
 # Univariate
 # Continuous
@@ -1060,13 +1196,37 @@ ggplot(results, aes(Methano_Cat, Per_aerobe)) +
 #### __Metadata ####
 # Need to acquire and merge metadata for those samples
 # Get all NEON sites metadata
-# res <- httr::GET("https://data.neonscience.org/api/v0/sites")
-# stop_for_status(res)
-# sites_meta <- content(res, as = "text", encoding = "UTF-8") %>%
-#   jsonlite::fromJSON(simplifyVector = TRUE)
-# site_df <- sites_meta$data %>% 
-#   as_tibble() %>%
-#   dplyr::select(1:10)
+res <- httr::GET("https://data.neonscience.org/api/v0/sites")
+stop_for_status(res)
+sites_meta <- content(res, as = "text", encoding = "UTF-8") %>%
+  jsonlite::fromJSON(simplifyVector = TRUE)
+site_df <- sites_meta$data %>%
+  as_tibble() %>%
+  dplyr::select(1:10)
+neon_files <- read.csv("data/Globus_Download_521076_File_Manifest.csv") %>%
+  mutate(MetaG.Name = gsub("-DNA1", "", Genome.Metagenome.Name))
+neon_reads <- read.delim("data/neon_read_stats.tsv", header = FALSE) %>%
+  separate(V2, into = c("Reads", "Mean", "Min", "Max"), sep = " ") %>%
+  mutate(SampleID = gsub("BactReads/", "", V1)) %>%
+  mutate(SampleID = gsub("_R1_bacterial.fastq.gz", "", SampleID)) %>%
+  dplyr::select(-V1) %>%
+  mutate(Reads = as.integer(Reads))
+range(neon_reads$Reads)
+mean(neon_reads$Reads)
+se(neon_reads$Reads)
+sd(neon_reads$Reads)
+neon_per_aerobe <- readRDS("data/results_neon.rds") %>%
+  rename(SampleID = sampleID) %>%
+  mutate(Per_anaerobe = 100 - Per_aerobe) %>%
+  left_join(., neon_reads, by = "SampleID") %>% # Reads
+  left_join(., neon_files, by = c("SampleID" = "Short.Organism.Name")) %>% # IDs
+  mutate(Composite = ifelse(grepl("GEN", Genome.Metagenome.Name), "No", "Yes")) %>%
+  filter(Composite == "Yes") %>%
+  mutate(Site = substr(Genome.Metagenome.Name, 1, 4)) %>%
+  mutate(SitePlot = substr(Genome.Metagenome.Name, 1, 8)) %>%
+  mutate(SitePlotH = substr(Genome.Metagenome.Name, 1, 10)) %>%
+  mutate(SitePlotHDate = substr(Genome.Metagenome.Name, 1, 19))
+site_list <- unique(neon_per_aerobe$Site)
 
 # Or use the file provided here https://www.neonscience.org/field-sites/explore-field-sites
 # This was updated Oct 8, 2025, use this for MAT and MAP
@@ -1210,27 +1370,79 @@ metaDB_Hugh <- read.delim("data/neon_soil_metagenome_samples_2023.tsv") %>%
                 soil.horizon) %>%
   mutate(SitePlotH = substr(dnaSampleID, 1, 10))
 
-neon_files <- read.csv("data/Globus_Download_521076_File_Manifest.csv") %>%
-  mutate(MetaG.Name = gsub("-DNA1", "", Genome.Metagenome.Name))
-
-neon_reads <- read.delim("data/neon_read_stats.tsv", header = FALSE) %>%
-  separate(V2, into = c("Reads", "Mean", "Min", "Max"), sep = " ") %>%
-  mutate(SampleID = gsub("BactReads/", "", V1)) %>%
-  mutate(SampleID = gsub("_R1_bacterial.fastq.gz", "", SampleID)) %>%
-  dplyr::select(-V1) %>%
-  mutate(Reads = as.integer(Reads))
-range(neon_reads$Reads)
-mean(neon_reads$Reads)
-se(neon_reads$Reads)
-sd(neon_reads$Reads)
-
 
 
 #### __oxymetag ####
+# Loop through the diamond output for the 209 samples
+setwd("~/Desktop/Fierer/AEGIS/Oxygen/diamond_output_neon/")
+files <- list.files()
+length(files)
+results <- as.data.frame(matrix(nrow = length(files), ncol = 5, NA)) %>%
+  set_names(c("filename", "ratio", "Pfams", "Aerobe_Pfams", "Anaerobe_Pfams"))
+
+for (i in 1:length(files)) {
+  
+  # Add filename to the dataframe
+  results$filename[i] <- files[i]
+  
+  # Read in and filter the data
+  d <- read.table(files[i]) %>%
+    set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
+                "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
+    filter(pident >= 60) %>%
+    filter(evalue < 0.001) %>%
+    filter(bitscore >= 50) %>%
+    mutate(Gene.length = abs(send - sstart)) %>%
+    left_join(., map, by = c("sseqid" = "Header"))
+  
+  # Number of the 20 Pfams found
+  pf_count <- as.data.frame(table(d$Pfam)) 
+  results$Pfams[i] <- nrow(pf_count)
+  results$Aerobe_Pfams[i] <- sum(pf_count$Var1 %in% aerobic_pfams$Pfam)
+  results$Anaerobe_Pfams[i] <- sum(pf_count$Var1 %in% anaerobic_pfams$Pfam)
+  
+  # Gene hits
+  gene.hits = d %>% 
+    group_by(Pfam) %>% 
+    summarise(total_count=n())
+  
+  gene.hit.length.correction <- gene.hits %>%
+    left_join(., pfam_gene_length, by = "Pfam") %>%
+    mutate(RPK = total_count / (Gene.length/1000)) %>%
+    left_join(., oxygen_pfams, by = "Pfam")
+  
+  # Now sum by aerobe indicator vs anaerobe indicator
+  oxygen_rpk <- gene.hit.length.correction %>%
+    group_by(Oxygen) %>%
+    summarize(RPKsum = sum(RPK))
+  
+  # Calculate the ratio and add it to the dataframe
+  results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
+  
+  # Status
+  message("Done processing table ", i)
+  
+}
+warnings()
+setwd("~/Documents/GitHub/Oxygen/")
+new_data <- data.frame(ratio = results$ratio)
+results$Per_aerobe <- predict(gam_model, newdata = new_data)
+results <- results %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe > 100, 100, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(Per_aerobe < 0, 0, Per_aerobe)) %>%
+  mutate(Per_aerobe = ifelse(ratio > 30, 100, Per_aerobe)) %>%
+  mutate(sampleID = gsub("_diamond.tsv", "", filename)) %>%
+  dplyr::select(-filename)
+#saveRDS(results, "data/results_neon.rds")
+
 # Merge everything!!
 # Note there were 38 samples that were the individual samples
 # Those also contained composite samples, so just use composite samples
-neon_per_aerobe <- read.delim("data/neon_per_aerobe_predictions.tsv") %>%
+neon_per_aerobe <- readRDS("data/results_neon.rds") %>%
+  rename(SampleID = sampleID) %>%
   mutate(Per_anaerobe = 100 - Per_aerobe) %>%
   left_join(., neon_reads, by = "SampleID") %>% # Reads
   left_join(., neon_files, by = c("SampleID" = "Short.Organism.Name")) %>% # IDs
@@ -1258,6 +1470,8 @@ neon_per_aerobe <- read.delim("data/neon_per_aerobe_predictions.tsv") %>%
   mutate(Dataset = "NEON (n = 247)")
 names(neon_per_aerobe)
 table(neon_per_aerobe$Composite)
+#saveRDS(neon_per_aerobe, "data/neon_per_aerobe.rds")
+
 TableS3 <- neon_per_aerobe %>%
   mutate(ClimateClass = ifelse(AI < 0.03, "Hyper arid",
                                ifelse(AI >= 0.03 & AI < 0.2, "Arid",
@@ -1275,21 +1489,18 @@ TableS3 <- neon_per_aerobe %>%
   dplyr::select(-Dataset, -Composite, -md5.checksum)
 # write_xlsx(TableS3, "~/Desktop/Fierer/AEGIS/Oxygen/Manuscript/TableS3.xlsx",
 #            format_headers = FALSE)
-neon_per_aerobe <- read_xlsx("~/Desktop/Fierer/AEGIS/Oxygen/Manuscript/TableS3.xlsx",
-                             skip = 1)
 
 # Basic info
-site_list <- unique(neon_per_aerobe$Site)
 table(neon_per_aerobe$Site)
 table(neon_per_aerobe$`Ecosystem Subtype`)
 
 hist(neon_per_aerobe$Per_aerobe)
-range(neon_per_aerobe$Per_aerobe)
-mean(neon_per_aerobe$Per_aerobe)
+range(neon_per_aerobe$Per_aerobe) # 40 to 100%
+mean(neon_per_aerobe$Per_aerobe) # 95%
 se(neon_per_aerobe$Per_aerobe)
-sd(neon_per_aerobe$Per_aerobe)
-median(neon_per_aerobe$Per_aerobe)
-sum(neon_per_aerobe$Per_aerobe == 100) # 164 100, 45 < 100
+sd(neon_per_aerobe$Per_aerobe) # 10%
+median(neon_per_aerobe$Per_aerobe) # 100%
+sum(neon_per_aerobe$Per_aerobe == 100) # 145 100, 64 < 100
 
 range(neon_per_aerobe$Reads)
 mean(neon_per_aerobe$Reads)
@@ -1458,7 +1669,7 @@ ggplot(neon_per_aerobe, aes(avg_number_of_green_days, Per_aerobe)) +
 an <- neon_per_aerobe %>%
   filter(Per_aerobe < 100) %>%
   droplevels()
-table(an$Site) # 13 of 26 sites
+table(an$Site) # 16 of 26 sites
 an_sites <- neon_per_aerobe %>%
   group_by(Site) %>%
   summarize(mean = mean(Per_aerobe)) %>%
@@ -1470,7 +1681,7 @@ an_sites <- neon_per_aerobe %>%
 
 
 
-#### _Categorical, Fig 6/S4 ####
+#### _Categorical, Fig 6/S5 ####
 # For Figure 6, we need to plot by habitat and add histogram as an inset
 # Make climate classes
 # < 0.03 Hyper Arid
@@ -1523,13 +1734,13 @@ base6 <- base6 %>%
   dplyr::select(Per_anaerobe, Ecosystem, Ecosystem2, ClimateClass, Dataset)
 b0 <- gamlss(base6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(base6$Per_anaerobe ~ base6$Ecosystem, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.20
+LR.test(b0, b1) # p = 0.0004
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = base6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(base6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke
+r2_nagelkerke # 0.17
 summary_b1 <- summary(b1)
 summary_b1
 
@@ -1537,13 +1748,13 @@ neon6 <- neon6 %>%
   dplyr::select(Per_anaerobe, Ecosystem, Ecosystem2, ClimateClass, Dataset)
 b0 <- gamlss(neon6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(neon6$Per_anaerobe ~ neon6$Ecosystem, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.50
+LR.test(b0, b1) # p = 0.19
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = neon6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(neon6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke
+r2_nagelkerke # 0.07
 summary_b1 <- summary(b1)
 summary_b1
 
@@ -1551,50 +1762,50 @@ summary_b1
 
 b0 <- gamlss(base6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(base6$Per_anaerobe ~ base6$Ecosystem2, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.25
+LR.test(b0, b1) # p = 0.0002
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = base6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(base6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke
+r2_nagelkerke # 0.156
 summary_b1 <- summary(b1)
 summary_b1
 
 b0 <- gamlss(neon6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(neon6$Per_anaerobe ~ neon6$Ecosystem2, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.23
+LR.test(b0, b1) # p = 0.218
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = neon6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(neon6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke
+r2_nagelkerke # 0.043
 summary_b1 <- summary(b1)
 summary_b1
 
 
 b0 <- gamlss(base6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(base6$Per_anaerobe ~ base6$ClimateClass, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.80
+LR.test(b0, b1) # p = 0.126
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = base6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(base6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke # 0.008
+r2_nagelkerke # 0.041
 summary_b1 <- summary(b1)
 summary_b1
 
 b0 <- gamlss(neon6$Per_anaerobe ~ 1, family = BEZI, trace = F)
 b1 <- gamlss(neon6$Per_anaerobe ~ neon6$ClimateClass, family = BEZI, trace = F)
-LR.test(b0, b1) # p = 0.24
+LR.test(b0, b1) # p = 0.958
 summary(b1)
 ll_null <- logLik(gamlss(Per_anaerobe ~ 1, data = neon6, family = BEZI))
 ll_full <- logLik(b1)
 n <- nrow(neon6)
 r2_nagelkerke <- as.numeric((1 - exp((2/n)*(ll_null - ll_full))) / (1 - exp(2*ll_null/n)))
-r2_nagelkerke # 0.042
+r2_nagelkerke # 0.003
 summary_b1 <- summary(b1)
 summary_b1
 
@@ -1603,11 +1814,12 @@ summary_b1
 fig6_df <- rbind(base6, neon6) %>%
   mutate(ClimateClass = factor(ClimateClass,
                                levels = c("Arid", "Semi-arid", 
-                                          "Dry sub-humid", "Humid")))
+                                          "Dry sub-humid", "Humid"))) %>%
+  mutate(Per_aerobe = 100* (1 - Per_anaerobe))
 
-figS4 <- ggplot(fig6_df, aes(ClimateClass, Per_aerobe)) +
+figS5 <- ggplot(fig6_df, aes(ClimateClass, Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
-  geom_jitter(size = 2, pch = 21, alpha = 0.75, width = 0.25, height = 0, 
+  geom_jitter(size = 2, pch = 21, alpha = 1, width = 0.25, height = 0, 
               colour = "black", aes(fill = ClimateClass)) +
   scale_fill_manual(values = c("red", "orange", "yellow", "blue")) +
   labs(x = "Climate class", 
@@ -1621,8 +1833,11 @@ figS4 <- ggplot(fig6_df, aes(ClimateClass, Per_aerobe)) +
         axis.title.x = element_blank(),
         strip.text = element_text(size = 14),
         legend.position = "none")
-pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
-figS4
+pdf("FinalFigs/FigureS5.pdf", width = 7, height = 5)
+figS5
+dev.off()
+png("FinalFigs/FigureS5.png", width = 7, height = 5, units = "in", res = 300)
+figS5
 dev.off()
 
 # Draft1 with Ecosystem
@@ -1665,9 +1880,7 @@ fig6 <- ggdraw() +
   draw_plot(main) +
   draw_plot(i1, x = 0.33, y = 0.23, width = 0.2, height = 0.2) +
   draw_plot(i2, x = 0.78, y = 0.23, width = 0.2, height = 0.2)
-pdf("FinalFigs/Figure6.pdf", width = 7, height = 5)
 fig6
-dev.off()
 
 # Draft 2 with Ecosystem 2
 main <- ggplot(fig6_df, aes(reorder_within(Ecosystem2, Per_aerobe, Dataset), Per_aerobe)) +
@@ -1712,16 +1925,16 @@ fig6 <- ggdraw() +
   draw_plot(main) +
   draw_plot(i1, x = 0.33, y = 0.23, width = 0.2, height = 0.2) +
   draw_plot(i2, x = 0.78, y = 0.23, width = 0.2, height = 0.2)
-pdf("FinalFigs/Figure6.pdf", width = 7, height = 5)
+pdf("FinalFigs/Figure5.pdf", width = 7, height = 5)
 fig6
 dev.off()
-png("FinalFigs/Figure6.png", width = 7, height = 5, units = "in", res = 300)
+png("FinalFigs/Figure5.png", width = 7, height = 5, units = "in", res = 300)
 fig6
 dev.off()
 
 
 
-#### _Continuous, Fig S5 ####
+#### _Continuous, Fig S6 ####
 # Australia and U.S., run zero-inflated beta regression for continuous variables
 # Both datasets have MAP, MAT, AI for all samples
 # Then, each dataset has a suite of soil variable, with varying amounts of NAs
@@ -1796,6 +2009,22 @@ m_us
 
 
 # Plot
+base6 <- aus %>%
+  dplyr::select(vegetation_type, Per_aerobe, AI, water_content) %>%
+  mutate(Per_anaerobe = (100 - Per_aerobe) / 100) %>%
+  mutate(ClimateClass = ifelse(AI < 0.03, "Hyper arid",
+                               ifelse(AI >= 0.03 & AI < 0.2, "Arid",
+                                      ifelse(AI >= 0.2 & AI < 0.5, "Semi-arid",
+                                             ifelse(AI >= 0.5 & AI < 0.65, "Dry sub-humid",
+                                                    "Humid"))))) %>%
+  rename(Ecosystem = vegetation_type,
+         SoilMoisture = water_content) %>%
+  mutate(Ecosystem2 = case_match(Ecosystem,
+                                 "Savannah" ~ "Grassland",
+                                 "Heathland" ~ "Shrubland",
+                                 .default = Ecosystem)) %>%
+  mutate(Dataset = "a) Australia (n = 331)",
+         Dataset2 = "a) Australia (n = 247)")
 d_aus <- base6 %>%
   filter(!is.na(SoilMoisture))
 b1 <- gamlss(Per_anaerobe ~ SoilMoisture, family = BEZI, trace = F, data = d_aus)
@@ -1827,6 +2056,23 @@ ggplot(d_us, aes(x = Sand, y = Per_anaerobe, colour = Ecosystem2)) +
        y = "Predicted proportion anaerobes") +
   theme_bw()
 
+neon6 <- neon_per_aerobe %>%
+  dplyr::select(Ecosystem2, Per_aerobe, AI, SoilMoisture) %>%
+  mutate(Per_anaerobe = (100 - Per_aerobe) / 100) %>%
+  mutate(ClimateClass = ifelse(AI < 0.03, "Hyper arid",
+                               ifelse(AI >= 0.03 & AI < 0.2, "Arid",
+                                      ifelse(AI >= 0.2 & AI < 0.5, "Semi-arid",
+                                             ifelse(AI >= 0.5 & AI < 0.65, "Dry sub-humid",
+                                                    "Humid"))))) %>%
+  rename(Ecosystem = Ecosystem2) %>%
+  mutate(Ecosystem2 = case_match(Ecosystem,
+                                 "Dwarf scrub" ~ "Shrubland",
+                                 "Shrub scrub" ~ "Shrubland",
+                                 "Evergreen forest" ~ "Forest",
+                                 "Deciduous forest" ~ "Forest",
+                                 .default = Ecosystem)) %>%
+  mutate(Dataset = "b) U.S. (n = 209)",
+         Dataset2 = "b) U.S. (n = 209)")
 d_us <- neon6 %>%
   filter(!is.na(SoilMoisture))
 b2 <- gamlss(Per_anaerobe ~ SoilMoisture, family = BEZI, trace = F, data = d_us)
@@ -1845,15 +2091,15 @@ ggplot(d_us, aes(x = SoilMoisture, y = Per_anaerobe, colour = Ecosystem2)) +
 
 
 # Combine
-fig7 <- rbind(d_aus, d_us)
+figS6_df <- rbind(d_aus, d_us)
 nd <- rbind(newdat, newdat2)
 lab <- data.frame("SoilMoisture" = c(20, 250),
                   "Per_anaerobe" = c(0.5, 0.5),
-                  "label" = c("atop(R^2 == 0.059, italic(p) == 0.026)",
-                              "atop(R^2 == 0.08, italic(p) == 0.005)"),
+                  "label" = c("atop(R^2 == 0.159, italic(p) < 0.001)",
+                              "atop(R^2 == 0.046, italic(p) == 0.03)"),
                   "Dataset2" = c("a) Australia (n = 247)",
                                  "b) U.S. (n = 209)"))
-fig7 <- ggplot(fig7, aes(x = SoilMoisture, y = Per_anaerobe)) +
+figS6 <- ggplot(figS6_df, aes(x = SoilMoisture, y = Per_anaerobe)) +
   geom_point(size = 3, pch = 21, alpha = 1, aes(fill = Ecosystem2)) +
   geom_line(data = nd, aes(y = fit), color = "blue", linewidth = 1.2) +
   geom_text(data = lab, aes(label = label), parse = TRUE) +
@@ -1868,95 +2114,245 @@ fig7 <- ggplot(fig7, aes(x = SoilMoisture, y = Per_anaerobe)) +
         axis.title = element_text(size = 14),
         strip.text = element_text(size = 14),
         legend.position = "right")
-pdf("FinalFigs/FigureS5.pdf", width = 7, height = 5)
-figS5
+figS6
+pdf("FinalFigs/FigureS6.pdf", width = 7, height = 5)
+figS6
 dev.off()
-png("FinalFigs/FigureS5.png", width = 7, height = 5, units = "in", res = 300)
-figS5
+png("FinalFigs/FigureS6.png", width = 7, height = 5, units = "in", res = 300)
+figS6
 dev.off()
 
 
 
-#### 6. Map ####
-# Make a map to include as a supplemental figure
-# Australia map was already made for Bueno de Mesquita et al. 2025
-# Make similar U.S. map
-d_331 <- read.delim("~/Documents/GitHub/AussieStrains/data/metadata_331.txt") %>%
-  mutate("ClimateClass" = ifelse(AI < 0.5, "Arid to semi-arid",
-                                 ifelse(AI >= 0.5 & AI < 0.65, "Dry sub-humid",
-                                        "Humid")))
-coords_trans <- st_as_sf(d_331,
-                         coords = c('longitude', 'latitude'),
-                         crs=4326)
-sf_oz <- ozmap("states")
-map <- ggplot(data = sf_oz) +
-  geom_sf(fill = "grey90", color = "white") +
-  geom_sf(data = coords_trans,
-          aes(fill = AI, shape = ClimateClass),
-          size = 3, alpha = 1, color = "black", stroke = 0.3) +
-  scale_shape_manual(values = c(21, 24, 22)) +
-  annotation_scale() +
-  annotation_north_arrow(pad_x = unit(1, "cm"), pad_y = unit(1, "cm"),
-                         height = unit(1, "cm"), width = unit(1, "cm"),) +
-  scale_fill_distiller(palette = "RdYlBu", direction = 1) +
-  guides(shape = guide_legend(order = 2),
-         fill = guide_colorbar(order = 1)) +
-  xlim(111, 155) +
-  ylim(43, 12) +
-  labs(fill = "Aridity\nindex") +
-  theme_minimal()
-map
+#### _Gut ####
+# As a second case study, let's analyze a time series of infant gut data
+# Guittar et al. 2019 showed that infant guts go from oxic to anoxic from months 3-15
+# We can use the DIABIMMUNE cohort study from Russia/Finland/Estonia
+# PRJNA290380
+# First select samples - used SRA Explorer to download metadata
+# Need to wrangle - get country, subject, day info, get good continuous range up to 2y
+gut_samples <- read.delim("data/sra_explorer_metadata.tsv") %>%
+  group_by(Accession) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  mutate(Title = gsub("WGS of infant gut metagenome: ", "", Title)) %>%
+  separate(Title, into = c("Country", "Junk", "SubjectID", "Junk1", "Junk2", 
+                           "Days", "Junk3"), remove = F, sep = " ") %>%
+  dplyr::select(-Junk, -Junk1, -Junk2, -Junk3) %>%
+  mutate(Days = as.integer(Days)) %>%
+  arrange(SubjectID, Days) %>%
+  filter(Days < 366)
+length(unique(gut_samples$SubjectID))
+table(gut_samples$SubjectID)
+table(gut_samples$Country)
+subject_counts <- as.data.frame(table(gut_samples$SubjectID)) %>%
+  filter(Freq > 2)
+hist(subject_counts$Freq)
+gut_samples <- gut_samples %>%
+  filter(SubjectID %in% subject_counts$Var1)
+hist(gut_samples$Days)
+# OK - using first year and subjects with at least 3 replicates = n 128, good
+# Now prep the wget download script to run on CURC
+gut_download <- read.delim("data/sra_explorer_metadata.tsv") %>%
+  filter(Accession %in% gut_samples$Accession) %>%
+  mutate(wget = "wget") %>%
+  dplyr::select(wget, FastQ.URL) %>%
+  mutate(Code = paste(wget, FastQ.URL, sep = " ")) %>%
+  dplyr::select(Code)
+#write.table(gut_download, "data/gut_download.txt", sep = "\t", row.names = F)
 
-neon_per_aerobe <- neon_per_aerobe %>%
-  mutate(ClimateClass = ifelse(AI < 0.03, "Hyper arid",
-                               ifelse(AI >= 0.03 & AI < 0.2, "Arid",
-                                      ifelse(AI >= 0.2 & AI < 0.5, "Semi-arid",
-                                             ifelse(AI >= 0.5 & AI < 0.65, "Dry sub-humid",
-                                                    "Humid")))))
-coords_trans2 <- st_as_sf(neon_per_aerobe,
-                          coords = c('longitude', 'latitude'),
-                          crs=4326)
-states <- get_urbn_map("states", sf = TRUE)
-ggplot(states) +
-  geom_sf(fill = "gray90", color = "white") +
-  geom_sf(data = coords_trans2,
-          aes(fill = AI, shape = ClimateClass),
-          size = 3, alpha = 1, color = "black", stroke = 0.3) +
-  scale_shape_manual(values = c(21, 24, 22, 23)) +
-  annotation_scale() +
-  annotation_north_arrow(pad_x = unit(1, "cm"), pad_y = unit(1, "cm"),
-                         height = unit(1, "cm"), width = unit(1, "cm"),) +
-  scale_fill_distiller(palette = "RdYlBu", direction = 1) +
-  guides(shape = guide_legend(order = 2),
-         fill = guide_colorbar(order = 1)) +
-  #xlim(111, 155) +
-  #ylim(43, 12) +
-  labs(fill = "Aridity\nindex") +
-  theme_minimal()
+# Import read depth information
+gut_reads <- read.delim("data/gut_bact_read_counts.tsv")
+sum(gut_reads$BactReads > 256000) # 97
+
+# Import oxymetag results - run with oxymetag v1.1.2
+gut_oxy <- read.delim("data/per_aerobe_predictions_gut.tsv") %>%
+  mutate(SampleID = gsub("_R1_filt", "", SampleID))
+
+# Join
+gut_samples <- gut_samples %>%
+  left_join(., gut_reads, by = "Accession") %>%
+  left_join(., gut_oxy, by = c("Accession" = "SampleID"))
+table(gut_samples$SubjectID)
+hist(gut_samples$Days)
+
+# Test
+m <- lmer(Per_aerobe ~ Days + (1|SubjectID), data = gut_samples)
+Anova(m)
+
+m1 <- lmer(Per_aerobe ~ Days + (1|SubjectID), data = gut_samples)
+m2 <- lmer(Per_aerobe ~ Days + (Days|SubjectID), data = gut_samples)
+anova(m1, m2) # NSD - don't use random slopes! Just random intercept
+
+# Make categorical
+gut_samples <- gut_samples %>%
+  mutate(DayCat1 = ifelse(Days <= 90, "0-3 months",
+                          ifelse(Days > 90 & Days <= 180, "3-6 months",
+                                 ifelse(Days > 180 & Days <= 270, "6-9 months",
+                                        "9-12 months")))) %>%
+  mutate(DayCat1 = factor(DayCat1, levels = c("0-3 months",
+                                              "3-6 months",
+                                              "6-9 months",
+                                              "9-12 months")))
+table(gut_samples$DayCat1)
+
+# Test
+m <- lmer(Per_aerobe ~ DayCat1 + (1|SubjectID), data = gut_samples)
+Anova(m)
+
+# Plot
+ggplot(gut_samples, aes(Days, Per_aerobe)) +
+  geom_point() +
+  geom_line(aes(group = SubjectID)) +
+  geom_smooth(method = "lm")
+
+pdf("InitialFigs/Gut_OxyMetaG.pdf", width = 7, height = 5)
+ggplot(gut_samples, aes(Days, Per_aerobe, colour = SubjectID)) +
+  geom_smooth(method = "lm", se = F, linewidth = 0.5) +
+  geom_smooth(method = "lm", aes(Days, Per_aerobe), 
+              inherit.aes = F, linewidth = 2) +
+  labs(x = "Days since birth",
+       y = "% aerobic bacteria") +
+  guides(colour = "none") +
+  theme_classic() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
+dev.off()
+
+ggplot(gut_samples, aes(Days, Per_aerobe)) +
+  geom_point() +
+  geom_line(aes(group = SubjectID)) +
+  geom_smooth(method = "lm", se = F) +
+  facet_wrap(~ SubjectID)
+
+ggplot(gut_samples, aes(DayCat1, Per_aerobe)) +
+  geom_boxplot() +
+  geom_jitter()
+
+# Subset to the 97 with > 256k reads
+gut_samples_deep <- gut_samples %>%
+  filter(BactReads > 256000)
+ggplot(gut_samples_deep, aes(Days, Per_aerobe, colour = SubjectID)) +
+  geom_smooth(method = "lm", se = F, linewidth = 0.5) +
+  geom_smooth(method = "lm", aes(Days, Per_aerobe), 
+              inherit.aes = F, linewidth = 2) +
+  labs(x = "Days since birth",
+       y = "% aerobic bacteria") +
+  guides(colour = "none") +
+  theme_classic() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
 
 
-library(usmap)
-library(ggplot2)
 
-# Example NEON-like sites
-sites <- data.frame(
-  siteID = c("BONA", "DELA", "CPER"),
-  lon = c(-147.5, -122.0, -104.7),
-  lat = c(65.0, 46.0, 40.8)
-)
+#### __Top Subjects ####
+# Subset to Subjects with the most samples and good range, including long range!
+gut_samples <- read.delim("data/sra_explorer_metadata.tsv") %>%
+  group_by(Accession) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  mutate(Title = gsub("WGS of infant gut metagenome: ", "", Title)) %>%
+  separate(Title, into = c("Country", "Junk", "SubjectID", "Junk1", "Junk2", 
+                           "Days", "Junk3"), remove = F, sep = " ") %>%
+  dplyr::select(-Junk, -Junk1, -Junk2, -Junk3) %>%
+  mutate(Days = as.integer(Days)) %>%
+  arrange(SubjectID, Days)
+subject_counts <- gut_samples %>%
+  group_by(SubjectID) %>%
+  summarise(n = n(),
+            minDay = min(Days),
+            maxDay = max(Days)) %>%
+  ungroup() %>%
+  mutate(range = maxDay - minDay) %>%
+  filter(n >= 7) %>% # At least 7 samples
+  filter(minDay < 100) # Earliest sample before day 100!
+sum(subject_counts$n)
+# This yields 9 subjects and 73 total samples
 
-# rename columns to x/y so usmap recognises them
-sites_usmap <- rename(sites, x = lon, y = lat)
+top_subjects <- gut_samples %>%
+  filter(SubjectID %in% subject_counts$SubjectID)
 
-plot_usmap(regions = "states", fill = "gray90", color = "white") +
-  geom_point(
-    data = sites_usmap,
-    aes(x = x, y = y),
-    color = "red",
-    size = 2
-  ) +
-  theme_void()
+# Now prep the wget download script to run on CURC
+gut_download <- read.delim("data/sra_explorer_metadata.tsv") %>%
+  filter(Accession %in% top_subjects$Accession) %>%
+  mutate(wget = "wget") %>%
+  dplyr::select(wget, FastQ.URL) %>%
+  mutate(Code = paste(wget, FastQ.URL, sep = " ")) %>%
+  dplyr::select(Code)
+#write.table(gut_download, "data/gut_download2.txt", sep = "\t", row.names = F)
 
+# Import read depth information
+gut_reads <- read.delim("data/gut_reads2.tsv")
+sum(gut_reads$BactReads > 256000) # 72 of 73!
+summary(gut_reads$BactReads)
 
+# Import oxymetag results - run with oxymetag v1.1.2
+gut_oxy <- read.delim("data/gut_per_aerobe_predictions2.tsv") %>%
+  mutate(SampleID = gsub("_R1_filt", "", SampleID))
+
+# Join
+gut_samples <- gut_samples %>%
+  filter(Accession %in% top_subjects$Accession) %>%
+  left_join(., gut_reads, by = "Accession") %>%
+  left_join(., gut_oxy, by = c("Accession" = "SampleID"))
+table(gut_samples$SubjectID)
+hist(gut_samples$Days)
+range(gut_samples$Days)
+summary(gut_samples$Per_aerobe)
+# Save this metadata as Table S5.
+# write_xlsx(gut_samples, "~/Desktop/Fierer/AEGIS/Oxygen/Manuscript/TableS5.xlsx",
+#            format_headers = F)
+
+# Test
+m <- lmer(Per_aerobe ~ Days + (1|SubjectID), data = gut_samples)
+Anova(m)
+
+m1 <- lmer(Per_aerobe ~ Days + (1|SubjectID), data = gut_samples)
+m2 <- lmer(Per_aerobe ~ Days + (Days|SubjectID), data = gut_samples)
+anova(m1, m2) # Barely sig - don't use random slopes! Just random intercept
+
+# Plot
+ggplot(gut_samples, aes(Days, Per_aerobe)) +
+  geom_point() +
+  geom_line(aes(group = SubjectID)) +
+  geom_smooth(method = "lm")
+
+pdf("InitialFigs/Gut_9subjects.pdf", width = 7, height = 5)
+ggplot(gut_samples, aes(Days, Per_aerobe, colour = SubjectID)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, linewidth = 0.5) +
+  geom_smooth(method = "lm", aes(Days, Per_aerobe), 
+              inherit.aes = F, linewidth = 2) +
+  labs(x = "Days since birth",
+       y = "% aerobic bacteria") +
+  guides(colour = "none") +
+  theme_classic() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
+dev.off()
+
+# Facet - use this for manuscript
+pdf("FinalFigs/Figure6.pdf", width = 7, height = 5)
+ggplot(gut_samples, aes(Days, Per_aerobe)) +
+  geom_point(size = 3, pch = 16) +
+  geom_line(aes(group = SubjectID)) +
+  labs(x = "Days since birth",
+       y = "Predicted aerobes (%) ") +
+  facet_wrap(~ SubjectID) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
+dev.off()
+png("FinalFigs/Figure6.png", width = 7, height = 5, units = "in", res = 300)
+ggplot(gut_samples, aes(Days, Per_aerobe)) +
+  geom_point(size = 3, pch = 16) +
+  geom_line(aes(group = SubjectID)) +
+  labs(x = "Days since birth",
+       y = "Predicted aerobes (%) ") +
+  facet_wrap(~ SubjectID) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
+dev.off()
 
 # End Script

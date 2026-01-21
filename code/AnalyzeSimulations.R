@@ -1,8 +1,14 @@
+# Analyze oxygen tolerance of simulated metagenomes
 # Parse Diamond Output, Calculate Ratio, Regress with Oxygen
+# By Cliff Bueno de Mesquita, Fierer Lab, June 2025
+# Note: Most of this code is now incorporated into OxyMetaG functions
+
+
 
 #### 1. Setup ####
 # Libraries
 library(tidyverse)
+library(mgcv)
 
 # Working directory
 setwd("~/Documents/GitHub/Oxygen/")
@@ -72,6 +78,9 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
     filter(pident >= 60) %>%
     filter(evalue < 0.001) %>%
     filter(bitscore >= 50) %>%
@@ -126,6 +135,9 @@ for (i in 1:length(files)) {
   d <- read.table(files[i]) %>%
     set_names(c("qseqid",	"sseqid",	"pident",	"length",	"qstart",	"qend",	
                 "sstart",	"send",	"evalue",	"bitscore")) %>%
+    group_by(qseqid) %>%
+    slice_max(bitscore, n = 1, with_ties = FALSE) %>% # Get the highest bitscore!
+    ungroup() %>%
     filter(pident >= 60) %>%
     filter(evalue < 0.001) %>%
     filter(bitscore >= 50) %>%
@@ -190,7 +202,7 @@ results25$Depth <- "26 to 41 million reads"
 c <- rbind(results, results25) %>%
   mutate(Depth = factor(Depth, levels = c("5 to 8 million reads", "26 to 41 million reads")))
 
-pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
+pdf("FinalFigs/Figure2.pdf", width = 7, height = 5)
 ggplot(c, aes(perc_aerobe, ratio)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth() +
@@ -204,7 +216,7 @@ ggplot(c, aes(perc_aerobe, ratio)) +
         strip.text = element_text(size = 14))
 dev.off()
 
-png("FinalFigs/FigureS4.png", width = 7, height = 5, units = "in", res = 300)
+png("FinalFigs/Figure2.png", width = 7, height = 5, units = "in", res = 300)
 ggplot(c, aes(perc_aerobe, ratio)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth() +
@@ -222,7 +234,6 @@ range(c$ratio)
 # Relationship is not linear and exponential doesn't quite fit right either
 # Need GAM
 # Use the data with greater sequencing depth because its more precise
-library(mgcv)
 gam_model <- gam(perc_aerobe ~ s(ratio), data = results25)
 summary(gam_model)
 plot(gam_model)
@@ -233,3 +244,5 @@ predicted_y
 
 # Save the GAM model
 saveRDS(gam_model, "data/gam_model.rds")
+gam_model <- readRDS("data/gam_model.rds")
+summary(gam_model)
