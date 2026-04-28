@@ -1,4 +1,4 @@
-# Calculate % aerobic bacteria in modern metagenomes
+# Predict oxygen levels (0-100 %) in modern metagenomes
 # by Cliff Bueno de Mesquita, Fierer Lab, 2025
 # Use the GAM model from the simulated metagenomes
 # Ended up doing 4 analyses - cross habitat, Australian soil, U.S. soil, human gut
@@ -227,7 +227,7 @@ for (i in 1:length(files)) {
   # Calculate the ratio and add it to the dataframe
   results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
   
-  # Status
+  # level
   message("Done processing table ", i)
   
 }
@@ -294,7 +294,7 @@ for (i in 1:length(files)) {
   # Calculate the ratio and add it to the dataframe
   results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
   
-  # Status
+  # level
   message("Done processing table ", i)
   
 }
@@ -372,7 +372,7 @@ letters <- multcompLetters(tukey_pvals)$Letters
 letter_df <- data.frame(Habitat3 = names(letters),
                         letter = letters,
                         y_pos = 105)
-fig4 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
+fig3 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = F, aes(colour = Type)) +
   geom_jitter(pch = 21, size = 3, alpha = 0.8, width = 0.25, aes(fill = Type)) +
   geom_text(data = letter_df, aes(x = Habitat3, y = y_pos, label = letter),
@@ -381,7 +381,7 @@ fig4 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
                                  "#882255")) +
   scale_fill_manual(values = c("#88CCEE", "#44AA99", "#332288", "#DDCC77", "brown1", 
                                "#882255")) +
-  labs(x = NULL, y = "Predicted aerobes (%)") +
+  labs(x = NULL, y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(legend.position = "inside",
         legend.position.inside = c(1, 0),
@@ -391,12 +391,12 @@ fig4 <- ggplot(d_plot, aes(reorder(Habitat3, Per_aerobe, mean), Per_aerobe)) +
         axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
         axis.title = element_text(size = 14))
-fig4
+fig3
 pdf("FinalFigs/Figure3.pdf", width = 7, height = 5)
-fig4
+fig3
 dev.off()
 png("FinalFigs/Figure3.png", width = 7, height = 5, units = "in", res = 300)
-fig4
+fig3
 dev.off()
 
 # Reads
@@ -440,7 +440,7 @@ summary(m) # p = 0.16
 ggplot(bs, aes(Oxygen, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", se = F) +
-  labs(x = "Oxygen", y = "Aerobe relative abundance (%)") +
+  labs(x = "Oxygen", y = "Predicted oxygen level (%)") +
   ylim(0, 100) +
   scale_x_log10() +
   theme_bw() +
@@ -452,8 +452,7 @@ summary(m) # p = 0.006
 ggplot(bs, aes(Depth_cm, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", formula = y ~ poly(x, 3, raw = TRUE), color = "blue") +
-  labs(x = "Depth (km)", y = "Aerobe relative abundance (%)") +
-  #ylim(0, 100) +
+  labs(x = "Depth (km)", y = "Predicted oxygen level (%)") +
   scale_x_log10() +
   theme_bw() +
   theme(axis.text = element_text(size = 10),
@@ -467,7 +466,7 @@ pdf("InitialFigs/BlackSea_Aerobe_O2_H2S.pdf", width = 7, height = 5)
 ggplot(bs, aes(O2_H2S, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(se = F) +
-  labs(x = "[O2] / [H2S]", y = "Predicted aerobe relative abundance (%)") +
+  labs(x = "[O2] / [H2S]", y = "Predicted oxygen level (%)") +
   scale_y_continuous(breaks = c(0, 25, 50, 75, 100),
                      limits = c(-5, 110)) +
   scale_x_log10() +
@@ -488,7 +487,7 @@ p1 <- ggplot(bs, aes(O2_H2S, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(se = F) +
   labs(x = expression("[" * O[2] * "] / [" * H[2] * S * "] ratio"),
-       y = "Predicted aerobes (%)") +
+       y = "Predicted oxygen level (%)") +
   scale_y_continuous(breaks = c(0, 25, 50, 75, 100),
                      limits = c(-5, 110)) +
   scale_x_log10(breaks = c(0.001, 0.01, 0.1, 1, 10, 100, 1000),
@@ -518,7 +517,7 @@ ggplot(baltic, aes(Oxygen, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm") +
   labs(x = "Dissolved oxygen (mg/L)", 
-       y = "Predicted aerobe relative abundance (%)") +
+       y = "Predicted oxygen level (%)") +
   ylim(0, 100) +
   theme_bw() +
   theme(axis.text = element_text(size = 10),
@@ -529,7 +528,7 @@ p2 <- ggplot(baltic, aes(Oxygen, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", se = F) +
   labs(x = "Dissolved oxygen (mg/L)", 
-       y = "Predicted aerobes (%)") +
+       y = "Predicted oxygen level (%)") +
   scale_y_continuous(breaks = c(0, 25, 50, 75, 100),
                      limits = c(-5, 110)) +
   ggtitle("b) Baltic Sea sediment") +
@@ -559,7 +558,7 @@ pdf("InitialFigs/Tanganyika_Aerobe_Depth.pdf", width = 7, height = 5)
 ggplot(lake, aes(Depth_cat, Per_aerobe)) +
   geom_boxplot(outliers = F) +
   geom_jitter(size = 3, alpha = 0.75, width = 0.25, height = 0) +
-  labs(x = "Depth", y = "Predicted aerobe relative abundance (%)") +
+  labs(x = "Depth", y = "Predicted oxygen level (%)") +
   theme_bw() +
   theme(axis.text.y = element_text(size = 10),
         axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
@@ -574,7 +573,7 @@ p3 <- ggplot(lake, aes(Depth_cat, Per_aerobe)) +
   geom_jitter(size = 3, alpha = 0.75, width = 0.25, height = 0) +
   geom_text(data = lab, aes(x = x, y = y, label = label),
             inherit.aes = F, size = 5) +
-  labs(x = "Depth", y = "Predicted aerobes (%)") +
+  labs(x = "Depth", y = "Predicted oxygen level (%)") +
   scale_y_continuous(breaks = c(0, 25, 50, 75, 100),
                      limits = c(-5, 110)) +
   ggtitle("c) Lake Tanganyika water") +
@@ -592,7 +591,7 @@ p3
 ggplot(lake, aes(Depth_cm/100, Per_aerobe)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", linetype = "solid") +
-  labs(x = "Depth (m)", y = "Predicted aerobe relative abundance (%)") +
+  labs(x = "Depth (m)", y = "Predicted oxygen level (%)") +
   theme_bw() +
   theme(axis.text = element_text(size = 10),
         axis.title = element_text(size = 12))
@@ -606,13 +605,13 @@ ggplot(lake, aes(Oxygen, Per_aerobe)) +
   theme(axis.text = element_text(size = 10),
         axis.title = element_text(size = 12))
 
-fig5 <- plot_grid(p1, p2, p3, ncol = 3, align = "h",
+fig4 <- plot_grid(p1, p2, p3, ncol = 3, align = "h",
                   rel_widths = c(0.36, 0.29, 0.29))
 pdf("FinalFigs/Figure4.pdf", width = 8, height = 4)
-fig5
+fig4
 dev.off()
 png("FinalFigs/Figure4.png", width = 8, height = 4, units = "in", res = 300)
-fig5
+fig4
 dev.off()
 
 
@@ -626,21 +625,21 @@ results_compare <- results_stringent %>%
   filter(sampleID.x %in% d_plot$sampleID)
 m <- lm(Per_aerobe.x ~ Per_aerobe.y, data = results_compare)
 summary(m)
-figs4 <- ggplot(results_compare, aes(Per_aerobe.y, Per_aerobe.x)) +
+figS3 <- ggplot(results_compare, aes(Per_aerobe.y, Per_aerobe.x)) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
   geom_point(size = 3, pch = 16, alpha = 0.75) +
   geom_smooth(method = "lm") +
-  labs(x = "Predicted % aerobes (default cutoffs)",
-       y = "Predicted % aerobes (stringent cutoffs)") +
+  labs(x = "Predicted % oxygen level (default cutoffs)",
+       y = "Predicted % oxygen level (stringent cutoffs)") +
   theme_bw() +
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 12))
-figs4
-pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
-figs4
+figS3
+pdf("FinalFigs/FigureS3.pdf", width = 7, height = 5)
+figS3
 dev.off()
-png("FinalFigs/FigureS4.png", width = 7, height = 5, units = "in", res = 300)
-figs4
+png("FinalFigs/FigureS3.png", width = 7, height = 5, units = "in", res = 300)
+figS3
 dev.off()
 
 
@@ -710,7 +709,7 @@ for (i in 1:length(files)) {
   # Calculate the ratio and add it to the dataframe
   results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
   
-  # Status
+  # level
   message("Done processing table ", i)
   
 }
@@ -738,7 +737,7 @@ seqdepth <- readRDS("data/results_seqdepth.rds") %>%
   mutate(Habitat = factor(Habitat, levels = c("Surface Lake", "Deep Lake", "Gut"))) %>%
   arrange(Habitat, SeqDepth)
 
-figs3 <- ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
+figS8 <- ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
   geom_point(size = 4) +
   geom_line() +
   scale_x_continuous(trans = "log2",
@@ -747,7 +746,7 @@ figs3 <- ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
                                 8192000, 16384000, 32768000),
                      labels = label_number(scale_cut = cut_short_scale())) +
   labs(x = "Reads",
-       y = "Predicted % aerobes") +
+       y = "Predicted oxygen level (%)") +
   scale_colour_manual(values = highcontrast(3)[1:3]) +
   theme_bw() +
   theme(axis.text = element_text(size = 11),
@@ -755,12 +754,12 @@ figs3 <- ggplot(seqdepth, aes(SeqDepth, Per_aerobe, colour = Habitat)) +
         panel.grid.minor = element_blank(),
         legend.position = "inside",
         legend.position.inside = c(0.9, 0.3))
-figs3
-pdf("FinalFigs/FigureS3.pdf", width = 8, height = 4)
-figs3
+figS8
+pdf("FinalFigs/FigureS8.pdf", width = 8, height = 4)
+figS8
 dev.off()
-png("FinalFigs/FigureS3.png", width = 8, height = 4, units = "in", res = 300)
-figs3
+png("FinalFigs/FigureS8.png", width = 8, height = 4, units = "in", res = 300)
+figS8
 dev.off()
 
 pdf("InitialFigs/SeqDepth_Ratio.pdf", width = 8, height = 4)
@@ -846,11 +845,11 @@ dev.off()
 
 
 #### 5. Application ####
-# Use the tool on a big dataset to answer a question
+# Run OxyMetaG on a big dataset to answer a question
 # Which variables (precip, aridity, moisture, carbon, texture) are most closely
-# associated with predicted % aerobic bacteria relative abundance?
-# And - is this consistent across 3 independent datasets?
-# Test across Australia, Panama, NEON metagenomes and metadata
+# associated with predicted % oxygen level?
+# And - is this consistent across 2 independent datasets?
+# Test across Australia and NEON metagenomes and metadata
 
 
 
@@ -906,7 +905,7 @@ for (i in 1:length(files)) {
   # Calculate the ratio and add it to the dataframe
   results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
   
-  # Status
+  # level
   message("Done processing table ", i)
   
 }
@@ -1038,7 +1037,7 @@ ggplot(aus_uni, aes(ClaySilt, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth(method = "lm") +
   labs(x = "% Clay + Silt",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1047,7 +1046,7 @@ ggplot(aus, aes(water_content, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth(method = "lm") +
   labs(x = "% water content",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1055,7 +1054,7 @@ ggplot(aus, aes(organic_carbon, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth(method = "lm") +
   labs(x = "% C",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1064,25 +1063,25 @@ ggplot(aus, aes(AI, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth(method = "lm") +
   labs(x = "drier <==  Aridity index  ==> wetter",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic()
 ggplot(aus, aes(bio1, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth() +
   labs(x = "MAT",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic()
 ggplot(aus, aes(bio12, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth() +
   labs(x = "MAP",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic()
 ggplot(aus, aes(nitrate_nitrogen, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth() +
   labs(x = "N",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic()
 ggplot(aus, aes(ph, Per_aerobe)) +
   geom_point(alpha = 0.75) +
@@ -1096,7 +1095,7 @@ ggplot(aus, aes(conductivity, Per_aerobe)) +
   geom_point(alpha = 0.75) +
   geom_smooth() +
   labs(x = "Conductivity",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic()
 ggplot(aus, aes(phosphorus_colwell, Per_aerobe)) +
   geom_point(alpha = 0.75) +
@@ -1111,7 +1110,7 @@ ggplot(aus, aes(reorder(vegetation_type, Per_aerobe, median), Per_aerobe)) +
   geom_boxplot(outliers = F) +
   geom_jitter(alpha = 0.75, width = 0.25) +
   labs(x = "Vegetation",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1122,7 +1121,7 @@ ggplot(aus, aes(reorder(ClimateClass, Per_aerobe, median), Per_aerobe)) +
   geom_boxplot(outliers = F) +
   geom_jitter(alpha = 0.75, width = 0.25) +
   labs(x = "Aridity class",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1133,7 +1132,7 @@ ggplot(aus, aes(Month, Per_aerobe)) +
   geom_boxplot(outliers = F) +
   geom_jitter(alpha = 0.75, width = 0.25) +
   labs(x = "Month",
-       y = "Predicted % aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   theme_classic() +
   theme(axis.title = element_text(size = 12),
         axis.text = element_text(size = 10))
@@ -1171,7 +1170,7 @@ results <- results %>%
   left_join(., methanos, by = "sampleID")
 ggplot(results, aes(Per_aerobe, Methano)) +
   geom_point(size = 3, pch = 16, alpha = 0.75) +
-  labs(x = "Predicted % aerobes",
+  labs(x = "Predicted oxygen level (%)",
        y = "% methanogens") +
   theme_classic() +
   theme(axis.title = element_text(size = 14),
@@ -1179,7 +1178,7 @@ ggplot(results, aes(Per_aerobe, Methano)) +
 ggplot(results, aes(Methano_Cat, Per_aerobe)) +
   geom_violin() +
   geom_jitter(size = 3, pch = 16, alpha = 0.75, height = 0, width = 0.1) +
-  labs(y = "Predicted % aerobes",
+  labs(y = "Predicted oxygen level (%)",
        x = "Methanogen presence") +
   theme_classic() +
   theme(axis.title = element_text(size = 14),
@@ -1197,7 +1196,7 @@ ggplot(results, aes(Methano_Cat, Per_aerobe)) +
 # Need to acquire and merge metadata for those samples
 # Get all NEON sites metadata
 res <- httr::GET("https://data.neonscience.org/api/v0/sites")
-stop_for_status(res)
+stop_for_level(res)
 sites_meta <- content(res, as = "text", encoding = "UTF-8") %>%
   jsonlite::fromJSON(simplifyVector = TRUE)
 site_df <- sites_meta$data %>%
@@ -1422,7 +1421,7 @@ for (i in 1:length(files)) {
   # Calculate the ratio and add it to the dataframe
   results$ratio[i] <- oxygen_rpk$RPKsum[1] / oxygen_rpk$RPKsum[2]
   
-  # Status
+  # level
   message("Done processing table ", i)
   
 }
@@ -1511,7 +1510,8 @@ sd(neon_per_aerobe$Reads)
 pdf("InitialFigs/NEON_PerAerobe_histogram.pdf", width = 7, height = 5)
 ggplot(neon_per_aerobe, aes(Per_aerobe)) +
   geom_histogram() +
-  labs(x = "Predicted aerobes (%)", y = "Count") +
+  labs(x = "Predicted oxygen level (%)", 
+       y = "Count") +
   theme_classic() +
   theme(axis.text = element_text(size = 12),
         axis.title = element_text(size = 14))
@@ -1521,7 +1521,8 @@ ggplot(neon_per_aerobe, aes(Dataset, Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 16, alpha = 0.5) +
   geom_ysidedensity(aes(x = after_stat(density))) +
-  labs(x = NULL, y = "Predicted aerobes (%)") + 
+  labs(x = NULL, 
+       y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text = element_text(size = 12),
         axis.title = element_text(size = 14)) +
@@ -1532,7 +1533,7 @@ pdf("InitialFigs/NEON_PerAerobe_Sites.pdf", width = 7, height = 5)
 ggplot(neon_per_aerobe, aes(reorder(Site, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 16, alpha = 0.75) +
-  labs(x = "Site", y = "Predicted aerobes (%)") + 
+  labs(x = "Site", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1542,7 +1543,7 @@ dev.off()
 ggplot(neon_per_aerobe, aes(reorder(Ecosystem, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 16, alpha = 0.75, width = 0.25) +
-  labs(x = "Ecosystem", y = "Predicted aerobes (%)") + 
+  labs(x = "Ecosystem", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1551,7 +1552,7 @@ ggplot(neon_per_aerobe, aes(reorder(Ecosystem, Per_aerobe, mean), Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(reorder(Ecosystem2, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 16, alpha = 0.75, width = 0.25) +
-  labs(x = "Ecosystem", y = "Predicted aerobes (%)") + 
+  labs(x = "Ecosystem", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1560,7 +1561,7 @@ ggplot(neon_per_aerobe, aes(reorder(Ecosystem2, Per_aerobe, mean), Per_aerobe)) 
 ggplot(neon_per_aerobe, aes(reorder(soilOrder, Per_aerobe, mean), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 16, alpha = 0.75) +
-  labs(x = "Soil order", y = "Predicted aerobes (%)") + 
+  labs(x = "Soil order", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1569,7 +1570,7 @@ ggplot(neon_per_aerobe, aes(reorder(soilOrder, Per_aerobe, mean), Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(MegaSand, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "% Sand", y = "Predicted aerobes (%)") + 
+  labs(x = "% Sand", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1578,7 +1579,7 @@ ggplot(neon_per_aerobe, aes(MegaSand, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(Sand, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "% Sand", y = "Predicted aerobes (%)") + 
+  labs(x = "% Sand", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1587,7 +1588,7 @@ ggplot(neon_per_aerobe, aes(Sand, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(SoilMoisture, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth(method = "lm") +
-  labs(x = "GWC (%)", y = "Predicted aerobes (%)") + 
+  labs(x = "GWC (%)", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1597,7 +1598,7 @@ ggplot(data = subset(neon_per_aerobe, Ecosystem2 != "Wetland"),
        aes(SoilMoisture, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "GWC (%)", y = "Predicted aerobes (%)") + 
+  labs(x = "GWC (%)", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1606,7 +1607,7 @@ ggplot(data = subset(neon_per_aerobe, Ecosystem2 != "Wetland"),
 ggplot(neon_per_aerobe, aes(MAP, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "MAP (mm)", y = "Predicted aerobes (%)") + 
+  labs(x = "MAP (mm)", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1615,7 +1616,7 @@ ggplot(neon_per_aerobe, aes(MAP, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(MAT, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "MAT (C)", y = "Predicted aerobes (%)") + 
+  labs(x = "MAT (C)", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1624,7 +1625,7 @@ ggplot(neon_per_aerobe, aes(MAT, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(AI, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "AI", y = "Predicted aerobes (%)") + 
+  labs(x = "AI", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1633,7 +1634,7 @@ ggplot(neon_per_aerobe, aes(AI, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(pH, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "pH", y = "Predicted aerobes (%)") + 
+  labs(x = "pH", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1642,7 +1643,7 @@ ggplot(neon_per_aerobe, aes(pH, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(Elevation, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "Elevation (m)", y = "Predicted aerobes (%)") + 
+  labs(x = "Elevation (m)", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1651,7 +1652,7 @@ ggplot(neon_per_aerobe, aes(Elevation, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(mean_canopy_height_m, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "Canopy height", y = "Predicted aerobes (%)") + 
+  labs(x = "Canopy height", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1660,7 +1661,7 @@ ggplot(neon_per_aerobe, aes(mean_canopy_height_m, Per_aerobe)) +
 ggplot(neon_per_aerobe, aes(avg_number_of_green_days, Per_aerobe)) +
   geom_point(size = 2, pch = 16, alpha = 0.75) +
   geom_smooth() +
-  labs(x = "Green days", y = "Predicted aerobes (%)") + 
+  labs(x = "Green days", y = "Predicted oxygen level (%)") + 
   theme_bw() +
   theme(axis.text.y = element_text(size = 12),
         axis.text.x = element_text(size = 12, angle = 90, hjust = 1, vjust = 0.5),
@@ -1681,8 +1682,8 @@ an_sites <- neon_per_aerobe %>%
 
 
 
-#### _Categorical, Fig 6/S5 ####
-# For Figure 6, we need to plot by habitat and add histogram as an inset
+#### _Categorical, Fig 5/S4 ####
+# For Figure 5, we need to plot by habitat and add histogram as an inset
 # Make climate classes
 # < 0.03 Hyper Arid
 # 0.03 – 0.2 Arid
@@ -1811,19 +1812,19 @@ summary_b1
 
 
 # Plot
-fig6_df <- rbind(base6, neon6) %>%
+figS4_df <- rbind(base6, neon6) %>%
   mutate(ClimateClass = factor(ClimateClass,
                                levels = c("Arid", "Semi-arid", 
                                           "Dry sub-humid", "Humid"))) %>%
   mutate(Per_aerobe = 100* (1 - Per_anaerobe))
 
-figS5 <- ggplot(fig6_df, aes(ClimateClass, Per_aerobe)) +
+figS4 <- ggplot(figS4_df, aes(ClimateClass, Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 21, alpha = 1, width = 0.25, height = 0, 
               colour = "black", aes(fill = ClimateClass)) +
   scale_fill_manual(values = c("red", "orange", "yellow", "blue")) +
   labs(x = "Climate class", 
-       y = "Predicted aerobes (%)") +
+       y = "Predicted oxygen level (%)") +
   facet_wrap(~ Dataset, scales = "free_x") +
   scale_x_reordered() +
   theme_bw() +
@@ -1833,20 +1834,20 @@ figS5 <- ggplot(fig6_df, aes(ClimateClass, Per_aerobe)) +
         axis.title.x = element_blank(),
         strip.text = element_text(size = 14),
         legend.position = "none")
-pdf("FinalFigs/FigureS5.pdf", width = 7, height = 5)
-figS5
+pdf("FinalFigs/FigureS4.pdf", width = 7, height = 5)
+figS4
 dev.off()
-png("FinalFigs/FigureS5.png", width = 7, height = 5, units = "in", res = 300)
-figS5
+png("FinalFigs/FigureS4.png", width = 7, height = 5, units = "in", res = 300)
+figS4
 dev.off()
 
 # Draft1 with Ecosystem
-main <- ggplot(fig6_df, aes(reorder_within(Ecosystem, Per_aerobe, Dataset), Per_aerobe)) +
+main <- ggplot(figS4_df, aes(reorder_within(Ecosystem, Per_aerobe, Dataset), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 21, alpha = 0.75, width = 0.25, height = 0, 
               colour = "white", fill = "black") +
   labs(x = "Ecosystem", 
-       y = "Predicted aerobes (%)") +
+       y = "Predicted oxygen level (%)") +
   facet_wrap(~ Dataset, scales = "free_x") +
   scale_x_reordered() +
   theme_bw() +
@@ -1876,21 +1877,21 @@ i2 <- ggplot(neon_per_aerobe, aes(Per_aerobe)) +
         #axis.title = element_text(size = 10),
         axis.title = element_blank())
 
-fig6 <- ggdraw() +
+fig5 <- ggdraw() +
   draw_plot(main) +
   draw_plot(i1, x = 0.33, y = 0.23, width = 0.2, height = 0.2) +
   draw_plot(i2, x = 0.78, y = 0.23, width = 0.2, height = 0.2)
-fig6
+fig5
 
 # Draft 2 with Ecosystem 2
-main <- ggplot(fig6_df, aes(reorder_within(Ecosystem2, Per_aerobe, Dataset), Per_aerobe)) +
+main <- ggplot(figS4_df, aes(reorder_within(Ecosystem2, Per_aerobe, Dataset), Per_aerobe)) +
   geom_boxplot(outliers = FALSE) +
   geom_jitter(size = 2, pch = 21, alpha = 1, width = 0.25, height = 0, 
               colour = "black", aes(fill = Ecosystem2)) +
   scale_fill_manual(values = c("antiquewhite", "darkgreen", "gold", "chartreuse3",
                                "blue", "brown")) +
   labs(x = "Ecosystem", 
-       y = "Predicted aerobes (%)") +
+       y = "Predicted oxygen level (%)") +
   facet_wrap(~ Dataset, scales = "free_x") +
   scale_x_reordered() +
   theme_bw() +
@@ -1905,7 +1906,7 @@ main
 # Histogram insets
 i1 <- ggplot(aus, aes(Per_aerobe)) +
   geom_histogram() +
-  labs(x = "Predicted aerobes (%)", y = "Count") +
+  labs(x = "Predicted oxygen level (%)", y = "Count") +
   scale_y_continuous(expand = c(0.02, 0.02)) +
   theme_classic() +
   theme(axis.text = element_text(size = 8),
@@ -1914,27 +1915,27 @@ i1 <- ggplot(aus, aes(Per_aerobe)) +
 
 i2 <- ggplot(neon_per_aerobe, aes(Per_aerobe)) +
   geom_histogram() +
-  labs(x = "Predicted aerobes (%)", y = "Count") +
+  labs(x = "Predicted oxygen level (%)", y = "Count") +
   scale_y_continuous(expand = c(0.02, 0.02)) +
   theme_classic() +
   theme(axis.text = element_text(size = 8),
         #axis.title = element_text(size = 10),
         axis.title = element_blank())
 
-fig6 <- ggdraw() +
+fig5 <- ggdraw() +
   draw_plot(main) +
   draw_plot(i1, x = 0.33, y = 0.23, width = 0.2, height = 0.2) +
   draw_plot(i2, x = 0.78, y = 0.23, width = 0.2, height = 0.2)
 pdf("FinalFigs/Figure5.pdf", width = 7, height = 5)
-fig6
+fig5
 dev.off()
 png("FinalFigs/Figure5.png", width = 7, height = 5, units = "in", res = 300)
-fig6
+fig5
 dev.off()
 
 
 
-#### _Continuous, Fig S6 ####
+#### _Continuous, Fig S5 ####
 # Australia and U.S., run zero-inflated beta regression for continuous variables
 # Both datasets have MAP, MAT, AI for all samples
 # Then, each dataset has a suite of soil variable, with varying amounts of NAs
@@ -2037,7 +2038,7 @@ ggplot(d_aus, aes(x = SoilMoisture, y = Per_anaerobe, colour = Ecosystem2)) +
   geom_point(size = 2, pch = 16, alpha = 0.5) +
   geom_line(data = newdat, aes(y = fit), color = "blue", linewidth = 1.2) +
   labs(x = "Gravimetric water content (g water/g dry soil)", 
-       y = "Predicted proportion anaerobes") +
+       y = "Predicted inverse proportion oxygen level") +
   theme_bw()
 
 d_us <- neon_per_aerobe %>%
@@ -2053,7 +2054,7 @@ ggplot(d_us, aes(x = Sand, y = Per_anaerobe, colour = Ecosystem2)) +
   geom_point(size = 2, pch = 16, alpha = 0.5) +
   geom_line(data = newdat2, aes(y = fit), color = "blue", linewidth = 1.2) +
   labs(x = "% Sand", 
-       y = "Predicted proportion anaerobes") +
+       y = "Predicted inverse proportion oxygen level") +
   theme_bw()
 
 neon6 <- neon_per_aerobe %>%
@@ -2085,13 +2086,13 @@ ggplot(d_us, aes(x = SoilMoisture, y = Per_anaerobe, colour = Ecosystem2)) +
   geom_point(size = 2, pch = 16, alpha = 0.5) +
   geom_line(data = newdat2, aes(y = fit), color = "blue", linewidth = 1.2) +
   labs(x = "Gravimetric water content (% dry mass)", 
-       y = "Predicted proportion anaerobes") +
+       y = "Predicted inverse proportion oxygen level") +
   theme_bw()
 
 
 
 # Combine
-figS6_df <- rbind(d_aus, d_us)
+figS5_df <- rbind(d_aus, d_us)
 nd <- rbind(newdat, newdat2)
 lab <- data.frame("SoilMoisture" = c(20, 250),
                   "Per_anaerobe" = c(0.5, 0.5),
@@ -2099,14 +2100,14 @@ lab <- data.frame("SoilMoisture" = c(20, 250),
                               "atop(R^2 == 0.046, italic(p) == 0.03)"),
                   "Dataset2" = c("a) Australia (n = 247)",
                                  "b) U.S. (n = 209)"))
-figS6 <- ggplot(figS6_df, aes(x = SoilMoisture, y = Per_anaerobe)) +
+figS5 <- ggplot(figS5_df, aes(x = SoilMoisture, y = Per_anaerobe)) +
   geom_point(size = 3, pch = 21, alpha = 1, aes(fill = Ecosystem2)) +
   geom_line(data = nd, aes(y = fit), color = "blue", linewidth = 1.2) +
   geom_text(data = lab, aes(label = label), parse = TRUE) +
   scale_fill_manual(values = c("antiquewhite", "darkgreen", "gold", "chartreuse3",
                                "blue", "brown")) +
   labs(x = "Gravimetric water content (% dry mass)", 
-       y = "Predicted proportion anaerobes",
+       y = "Predicted inverse proportion oxygen level",
        fill = "Ecosystem") +
   facet_wrap(~ Dataset2, scales = "free_x") +
   theme_bw() +
@@ -2114,12 +2115,41 @@ figS6 <- ggplot(figS6_df, aes(x = SoilMoisture, y = Per_anaerobe)) +
         axis.title = element_text(size = 14),
         strip.text = element_text(size = 14),
         legend.position = "right")
-figS6
-pdf("FinalFigs/FigureS6.pdf", width = 7, height = 5)
-figS6
+figS5
+
+# Convert points and lines back to 0-100% oxygen level
+figS5_df <- figS5_df %>%
+  mutate(Oxygenlevel = 100 - (Per_anaerobe*100))
+nd <- nd %>%
+  mutate(Oxygenlevel = 100 - (fit*100))
+lab <- data.frame("SoilMoisture" = c(20, 250),
+                  "Oxygenlevel" = c(45, 45),
+                  "label" = c("atop(R^2 == 0.159, italic(p) < 0.001)",
+                              "atop(R^2 == 0.046, italic(p) == 0.03)"),
+                  "Dataset2" = c("a) Australia (n = 247)",
+                                 "b) U.S. (n = 209)"))
+figS5 <- ggplot(figS5_df, aes(x = SoilMoisture, y = Oxygenlevel)) +
+  geom_point(size = 3, pch = 21, alpha = 1, aes(fill = Ecosystem2)) +
+  geom_line(data = nd, aes(y = Oxygenlevel), color = "blue", linewidth = 1.2) +
+  geom_text(data = lab, aes(label = label), parse = TRUE) +
+  scale_fill_manual(values = c("antiquewhite", "darkgreen", "gold", "chartreuse3",
+                               "blue", "brown")) +
+  labs(x = "Gravimetric water content (% dry mass)", 
+       y = "Predicted oxygen level (%)",
+       fill = "Ecosystem") +
+  facet_wrap(~ Dataset2, scales = "free_x") +
+  theme_bw() +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        strip.text = element_text(size = 14),
+        legend.position = "right")
+figS5
+
+pdf("FinalFigs/FigureS5.pdf", width = 7, height = 5)
+figS5
 dev.off()
-png("FinalFigs/FigureS6.png", width = 7, height = 5, units = "in", res = 300)
-figS6
+png("FinalFigs/FigureS5.png", width = 7, height = 5, units = "in", res = 300)
+figS5
 dev.off()
 
 
@@ -2212,7 +2242,7 @@ ggplot(gut_samples, aes(Days, Per_aerobe, colour = SubjectID)) +
   geom_smooth(method = "lm", aes(Days, Per_aerobe), 
               inherit.aes = F, linewidth = 2) +
   labs(x = "Days since birth",
-       y = "% aerobic bacteria") +
+       y = "Predicted oxygen level (%)") +
   guides(colour = "none") +
   theme_classic() +
   theme(axis.text = element_text(size = 12),
@@ -2331,28 +2361,22 @@ ggplot(gut_samples, aes(Days, Per_aerobe, colour = SubjectID)) +
         axis.title = element_text(size = 14))
 dev.off()
 
-# Facet - use this for manuscript
-pdf("FinalFigs/Figure6.pdf", width = 7, height = 5)
-ggplot(gut_samples, aes(Days, Per_aerobe)) +
+# Facet - use this for manuscript, Figure 6
+fig6 <- ggplot(gut_samples, aes(Days, Per_aerobe)) +
   geom_point(size = 3, pch = 16) +
   geom_line(aes(group = SubjectID)) +
   labs(x = "Days since birth",
-       y = "Predicted aerobes (%) ") +
+       y = "Predicted oxygen level (%)") +
   facet_wrap(~ SubjectID) +
   theme_bw() +
   theme(axis.text = element_text(size = 12),
         axis.title = element_text(size = 14))
+fig6
+pdf("FinalFigs/Figure6.pdf", width = 7, height = 5)
+fig6
 dev.off()
 png("FinalFigs/Figure6.png", width = 7, height = 5, units = "in", res = 300)
-ggplot(gut_samples, aes(Days, Per_aerobe)) +
-  geom_point(size = 3, pch = 16) +
-  geom_line(aes(group = SubjectID)) +
-  labs(x = "Days since birth",
-       y = "Predicted aerobes (%) ") +
-  facet_wrap(~ SubjectID) +
-  theme_bw() +
-  theme(axis.text = element_text(size = 12),
-        axis.title = element_text(size = 14))
+fig6
 dev.off()
 
 # End Script

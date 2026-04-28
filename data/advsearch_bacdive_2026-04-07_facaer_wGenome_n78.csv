@@ -1,0 +1,94 @@
+"The number of entries per field is limited to 10 for this overview. If you want the whole information you can use the API or the ""Download selection"" menu on the Webpage."
+"When using BacDive for research please cite our paper https://doi.org/10.1093/nar/gkae959"
+
+ID,designation_header,strain_number_header,is_type_strain_header,species,domain,"Oxygen tolerance","INSDC genome accesion","BV-BRC genome accession","IMG genome accession"
+2903,R-24608,"DSM 19327, LMG 24103",1,"Acidovorax caeni",Bacteria,"facultative aerobe",GCA_900116825,343013.6,2634166357
+1766,T6,"DSM 22365, LMG 21773, NCIMB 13939, JCM 15959",1,"Aeriscardovia aeriphila",Bacteria,"facultative aerobe",GCA_002259595,218139.3,2788500099
+,,,,,,,GCA_013408435,218139.4,2824784629
+272,A55,"DSM 18362, CECT 7289, LMG 24688, MDC 47",0,"Aeromonas dhakensis",Bacteria,"facultative aerobe",GCA_000819705,196024.5,2639762872
+166301,WN023,"KCTC 52855, ACCC 19978",1,"Fodinibius salipaludis",Bacteria,"facultative aerobe",GCA_002287075,2032627.3,2832733198
+1408,JW/BP-GSL-QD,"DSM 23721, ATCC BAA-2118, NBRC 11149",1,"Amphibacillus cookii",Bacteria,"facultative aerobe",GCA_016908375,767787.3,2901114716
+23742,J1,"DSM 27991, CGMCC 1.10434, JCM 17099",1,"Amphibacillus marinus",Bacteria,"facultative aerobe",GCA_900110345,872970.3,2617270769
+566,"T-11, T11","DSM 23211, CCTCC AB 209237, KCTC 13721",1,"Anoxybacillus tengchongensis",Bacteria,"facultative aerobe",GCA_014201585,576944.3,2861217274
+557,"TH 13","DSM 17075, JCM 12111, NCIMB 13956",1,"Anoxybacteroides voinovskiense",Bacteria,"facultative aerobe",GCA_014196205,230470.4,2829825107
+4301,,"DSM 18102, CCM 7368, CECT 7151, CGMCC 1.6291, CG 12, CIP 109713",1,"Aquisalimonas asiatica",Bacteria,"facultative aerobe",GCA_900110585,406100.9,2617270766
+24797,110S,"DSM 23922, ATCC BAA-2145, JCM 17282, KCTC 23289, NBRC 107679",1,"Ardenticatena maritima",Bacteria,"facultative aerobe",GCA_001293545,872965.10,2671180960
+,,,,,,,GCA_001306175,872965.11,2651869644
+133984,P7-3-5,"CGMCC 1.12213, KACC 16457",1,"Algibacter luteus",Bacteria,"facultative aerobe",GCA_000283015,1178825.3,2565956800
+,,,,,,,GCA_900141715,1178825.6,2667528186
+158604,4M3-2,"CFCC 11187, KCTC 42087",1,"Aureimonas populi",Bacteria,"facultative aerobe",GCA_017815515,1701758.3,3002172212
+13889,d8-1,"DSM 23864, BCRC 17657, LMG 24005",1,"Azonexus hydrophilus",Bacteria,"facultative aerobe",GCA_000429605,1121032.3,2524023152
+140877,CC-HIH038,"BCRC 80909, JCM 30827, CECT 9207",1,"Azospirillum agricola",Bacteria,"facultative aerobe",GCA_017876095,1720247.3,2918249483
+1738,T16,"DSM 22366, LMG 21775, NCIMB 13940, JCM 15958",1,"Bifidobacterium psychraerophilum",Bacteria,"facultative aerobe",GCA_000741705,218140.3,2597490219
+,,,,,,,GCA_000771565,1435464.3,8119566969
+,,,,,,,GCA_002813205,1435464.5,2627853606
+1786,BI-42,"DSM 9653, CCUG 55771, ATCC 700366",1,"Bosea thiooxidans",Bacteria,"facultative aerobe",GCA_900168195,53254.5,2595698224
+2318,EMB102,"DSM 17977, KCTC 12609",1,"Brevundimonas aveniformis",Bacteria,"facultative aerobe",GCA_000428765,1121123.3,2524614798
+5691,H9,"DSM 19482, LMG 24227, CIP 110170",1,"Chryseobacterium bovis",Bacteria,"facultative aerobe",GCA_900108115,1121284.4,2595699003
+158570,Pch-40,"KACC 19279, JCM 32033",1,"Cohnella algarum",Bacteria,"facultative aerobe",GCA_016937515,2044859.3,8066923553
+132362,TMW1.2011,"DSM 29801, CECT 8802",1,"Companilactobacillus insicii",Bacteria,"facultative aerobe",GCA_003946015,1732567.3,2881708693
+3243,410,"DSM 45586, CCUG 60915, LMG 26322, JCM 18955",1,"Corynebacterium epidermidicanis",Bacteria,"facultative aerobe",GCA_001021025,1050174.4,2615840652
+5539,ED5,"DSM 15936, ATCC BAA-842, CIP 109214",1,"Flavobacterium denitrificans",Bacteria,"facultative aerobe",GCA_000425445,1121888.3,2523533577
+131144,,"DSM 16476, KMM 3553",1,"Formosa algae",Bacteria,"facultative aerobe",GCA_001439665,225843.5,2724678980
+,,,,,,,GCA_030814285,225843.19,2926654377
+451,"ICO29, C12ST5","DSM 14239, ACAM 615, CIP 105819",1,"Glaciecola pallidula",Bacteria,"facultative aerobe",GCA_000315035,1121922.3,2531839186
+10519,E4FC31,"DSM 18507, CCUG 54946, LMG 23770",1,"Gulbenkiania mobilis",Bacteria,"facultative aerobe",GCA_004346645,397457.6,2799112276
+6040,"1723a, Althf1","DSM 15723, ATCC BAA-802, CECT 5812, KCTC 22194, CCM 7103, CIP 108042",1,"Halomonas aquamarina",Bacteria,"facultative aerobe",GCA_007163885,115555.24,2930057488
+6041,"1878c, Slthf2","DSM 15725, ATCC BAA-800, CECT 5814, CIP 108044",1,"Halomonas venusta",Bacteria,"facultative aerobe",GCA_011399095,115561.14,8115579665
+6038,"A1, BAA-805, Eplume 1","DSM 15720, CIP 108039, ATCC BAA-805, CECT 5815, CCM 7107",1,"Halomonas neptunia",Bacteria,"facultative aerobe",GCA_019903445,115551.3,8072497565
+,,,,,,,GCA_030409295,115551.12,8046485914
+6068,11S,"DSM 23437, CECT 7281, LMG 24185",1,"Halomonas nitroreducens",Bacteria,"facultative aerobe",GCA_003966155,447425.3,2902691746
+23064,AAD6,"DSM 21644, JCM 15723",1,"Halomonas smyrnensis",Bacteria,"facultative aerobe",GCA_000265245,339656.4,2551306539
+133783,KT1,"BCRC 80330, JCM 17727",1,"Kangiella taiwanensis",Bacteria,"facultative aerobe",GCA_020005165,1079179.3,8065486862
+141137,X13M-12,"CGMCC 1.12923, KCTC 42674",1,"Lacimicrobium alkaliphilum",Bacteria,"facultative aerobe",GCA_002591895,1526571.4,2832081228
+,,,,,,,GCA_014640135,1526571.11,8062951069
+134233,,"CCUG 53174, CIP 109613, LMG 23699, JCM 15951, NBRC 107159",1,"Companilactobacillus crustorum",Bacteria,"facultative aerobe",GCA_001434585,1423737.3,2695420765
+,,,,,,,GCA_001438825,392416.3,2663763277
+166523,ZW163,"NCIMB 15193, CCM 8926, CCTCC AB 2019015",1,"Lacticaseibacillus hulanensis",Bacteria,"facultative aerobe",GCA_004010095,2493111.3,2885647308
+133577,,"KCTC 12976, JCM 15530, DCY 51",1,"Secundilactobacillus kimchicus",Bacteria,"facultative aerobe",GCA_001313205,1302272.4,2734481936
+,,,,,,,GCA_001433995,1302272.5,2657245468
+158452,CLIP2015/00305,"DSM 107638, CIP 111635, CLIP 2015/00305",1,"Listeria thailandensis",Bacteria,"facultative aerobe",GCA_900576925,2268407.3,8018496712
+134256,,"KCCM 42360, NBRC 102074, IMCC 1097",1,"Litorivicinus lipolyticus",Bacteria,"facultative aerobe",GCA_009650135,418701.3,2989314806
+134195,,"KCTC 12570, LMG 22578, KMM 6038",1,"Mariniflexile gromovii",Bacteria,"facultative aerobe",GCA_017814435,362523.3,2994935003
+478,SM19,"DSM 15157, CCM 7048, CIP 107627, NCIMB 13907",1,"Marinobacter lipolyticus",Bacteria,"facultative aerobe",GCA_000397065,1318628.9,2571042755
+459,KW-40,"DSM 11526, ATCC 700074, JCM 21667, CIP 105236, IAM 15212, NBRC 102606, CECT 7200",1,"Marinobacterium iners",Bacteria,"facultative aerobe",GCA_900107855,1122198.3,2634166328
+1243,4T19,"DSM 17723, CIP 109816, KACC 11279, JCM 16399",1,"Metabacillus niabensis",Bacteria,"facultative aerobe",GCA_030813165,324854.15,2926518972
+134120,PM1,"ATCC BAA-1232, LMG 22953",1,"Methylibium petroleiphilum",Bacteria,"facultative aerobe",GCA_000015725,420662.15,640069319
+465,IRE-31,"DSM 11525, ATCC 700072, IRE 31, CIP 105235",1,"Microbulbifer hydrolyticus",Bacteria,"facultative aerobe",GCA_009931115,48074.3,8054081240
+,,,,,,,GCA_014202835,48074.4,2861623431
+14133,TPT18,"DSM 18602, ATCC BAA-1391, VKM B-2447",1,"Mucilaginibacter gracilis",Bacteria,"facultative aerobe",GCA_003633615,423350.3,2775506711
+14134,TPT56,"DSM 18603, ATCC BAA-1394, VKM B-2446",1,"Mucilaginibacter paludis",Bacteria,"facultative aerobe",GCA_000166195,714943.3,2506520020
+8628,1642,"DSM 22457, ATCC BAA-1895",1,"Mycoplasmopsis mucosicanis",Bacteria,"facultative aerobe",GCA_006546935,458208.3,2989528489
+11283,S3-22,"DSM 22306, CCTCC AB 209086, KACC 14056",1,"Neptunomonas antarctica",Bacteria,"facultative aerobe",GCA_001305295,619304.6,2645727840
+,,,,,,,GCA_900156635,619304.5,2681813508
+140601,2-2-12-1,"CGMCC 1.15320, LMG 29090",1,"Nitratireductor aestuarii",Bacteria,"facultative aerobe",GCA_014641695,1735103.3,2995399541
+11871,NL21,"DSM 15645, ATCC BAA-762, JCM 21793, CGMCC 1.8928, IAM 15348",1,"Nitratireductor aquibiodomus",Bacteria,"facultative aerobe",GCA_000615975,1231185.4,2585427885
+11628,"T 98, T98","DSM 17842, CCBAU 10203, CIP 110608",1,"Paenibacillus forsythiae",Bacteria,"facultative aerobe",GCA_031954385,365616.4,2926669167
+140630,SE-S21,"JCM 30137, KACC 18127, LMG 30175",1,"Pandoraea terrae",Bacteria,"facultative aerobe",GCA_902459695,1537710.3,2901612924
+158708,BN5,"KACC 19419, JCM 32303",1,"Paraburkholderia aromaticivorans",Bacteria,"facultative aerobe",GCA_002278075,2026199.3,2775506701
+8209,,"DSM 21586, KCCM 42363, NBRC 102354, IMCC 1704",1,"Perlucidibaca piscinae",Bacteria,"facultative aerobe",GCA_000420045,1122951.3,2524614877
+140486,P03D4,"KCTC 52365, MCCC 1K03200, CGMCC 1.15764, JCM 31445",1,"Photobacterium alginatilyticum",Bacteria,"facultative aerobe",GCA_009910675,1775171.3,2905545480
+164329,,"JCM 32689, KCTC 62619, MCCC 1K03517, BEI 247",1,"Photobacterium chitinilyticum",Bacteria,"facultative aerobe",GCA_004104355,2485123.3,2885236679
+3026,CC-21,"DSM 21352, CCUG 54492, CIP 109510",1,"Pseudacidovorax intermedius",Bacteria,"facultative aerobe",GCA_003350475,433924.4,2770939510
+140034,"E407-8, E407.8","DSM 22401, CCTCC AB 209089, KACC 14030, CCTCC AB 20908",1,"Rheinheimera nanhaiensis",Bacteria,"facultative aerobe",GCA_000296695,562729.3,2531839457
+13749,"7Vi, JA 181, JA181","DSM 17937, ATCC BAA-1274, JCM 13531, CIP 109728",1,"Rhodovulum visakhapatnamense",Bacteria,"facultative aerobe",GCA_004365965,364297.3,2802428856
+5634,"8151, RCP-8151","DSM 24015, LMG 26094",1,"Riemerella columbipharyngis",Bacteria,"facultative aerobe",GCA_900101995,1071918.3,2675903161
+140994,BSS09,"KCTC 52373, MCCC 1K03201",1,"Roseibium sediminis",Bacteria,"facultative aerobe",GCA_008711325,1775174.3,2889952345
+164421,DB1506,"JCM 32945, KACC 19791",1,"Roseicella frigidaeris",Bacteria,"facultative aerobe",GCA_003258945,2230885.3,2994101869
+13962,JA135,"DSM 18985, ATCC BAA-1364, JCM 14191",1,"Roseospira goensis",Bacteria,"facultative aerobe",GCA_014197795,391922.3,2838110688
+13963,JA131,"DSM 19947, ATCC BAA-1365, JCM 14190",1,"Roseospira visakhapatnamensis",Bacteria,"facultative aerobe",GCA_014197915,390880.3,2838118685
+24503,MA1-6,"DSM 27839, CCUG 60744, KCTC 23463",1,"Ruegeria halocynthiae",Bacteria,"facultative aerobe",GCA_900106805,985054.8,2693429872
+5734,BH206,"DSM 19287, KCTC 12883",1,"Salinimicrobium xinjiangense",Bacteria,"facultative aerobe",GCA_000423585,1123235.4,2524023136
+11945,,"DSM 18645, MPL 7",1,"Schlesneria paludicola",Bacteria,"facultative aerobe",GCA_000255655,1123242.3,2548877001
+14085,"F5, fav-2-10-05","DSM 21332, CIP 110229, LMG 24563",1,"Shewanella corallii",Bacteria,"facultative aerobe",GCA_023349125,560080.9,8045928163
+158555,D1,"KACC 18595, JCM 31225",1,"Sphingobacterium humi",Bacteria,"facultative aerobe",GCA_009768885,1796905.3,2896301657
+14676,"KS-SP60, KS-SP 60","DSM 25293, CCUG 58238, LMG 25332, CCM 7896, CIP 110234",1,"Staphylococcus devriesei",Bacteria,"facultative aerobe",GCA_002902625,586733.6,2917466835
+14848,MV1,"CCUG 66490, DSM 23027, CECT 7613",1,"Streptococcus lactarius",Bacteria,"facultative aerobe",GCA_016642265,684066.7,8112262180
+164455,JDX10,"JCM 33126, KCTC 49242, MCCC 1H00351",1,"Tessaracoccus antarcticus",Bacteria,"facultative aerobe",GCA_003688855,2479848.3,2835223424
+5258,"Jenil, JS","CCUG 52901, DSM 16501, KCTC 3924, LMG 22864, JCM 18085, CIP 108884, NBRC 106072",1,"Tetragenococcus koreensis",Bacteria,"facultative aerobe",GCA_003795145,290335.3,2836819050
+5259,T1,"DSM 23765, LMG 26041, LMG 10702, JCM 31126",1,"Tetragenococcus osmophilus",Bacteria,"facultative aerobe",GCA_003795125,526944.4,2836821788
+13785,,"DSM 23402, KCCM 42378, NBRC 102038, HTCC 2662, CIP 109709",0,"Tritonibacter mobilis",Bacteria,"facultative aerobe",GCA_001681735,379347.144,2816332506
+158724,AR23208,"KCTC 33929, JCM 32188",1,"Tumebacillus avium",Bacteria,"facultative aerobe",GCA_002162355,1903704.3,2987081222
+157132,MBLW1,"CCUG 69661, DSM 105045",1,"Tuwongella immobilis",Bacteria,"facultative aerobe",GCA_901538355,692036.5,2883404505
+140716,D7T301,"KCTC 21069, JCM 31178",1,"Vagococcus martis",Bacteria,"facultative aerobe",GCA_002026305,1768210.4,2987187325
+17368,G21,"DSM 22851, CGMCC 1.10228",1,"Vibrio xiamenensis",Bacteria,"facultative aerobe",GCA_900100015,861298.3,2617270927

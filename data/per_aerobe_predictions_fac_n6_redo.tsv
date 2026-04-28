@@ -1,0 +1,7 @@
+SampleID	ratio	aerobe_pfams	anaerobe_pfams	Per_aerobe	Bad
+batch_1_trimmed	21.42450606	13	7	80.4038	92.6176627
+batch_2_trimmed	5.756322538	13	7	62.84319737	
+batch_3_trimmed	2.883153397	13	7	46.08910771	
+batch_4_trimmed	1.523441712	13	7	27.47212714	
+batch_5_trimmed	0.875200336	13	7	14.33377316	
+batch_6_trimmed	0.303728522	11	7	0	

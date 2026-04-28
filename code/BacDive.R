@@ -1,5 +1,6 @@
 # Assemble BacDive Dataset and Genome Download List
 # By Cliff Bueno de Mesquita, Fierer Lab, May 2025
+# Revisions April 2026
 
 #### Setup ####
 # Libraries
@@ -53,7 +54,8 @@ bacGT_useful <- bacGT %>%
                 checkm_completeness, checkm_contamination, gc_percentage, genome_size,
                 gtdb_representative, gtdb_taxonomy, ncbi_assembly_level, ncbi_country,
                 ncbi_genbank_assembly_accession, ncbi_genome_category, ncbi_isolation_source, 
-                ncbi_refseq_category, ncbi_species_taxid, ncbi_taxid)
+                ncbi_refseq_category, ncbi_species_taxid, ncbi_taxid) %>%
+  mutate(ID2 = substr(ncbi_genbank_assembly_accession, start = 1, stop = 13))
 
 
 
@@ -64,7 +66,8 @@ bacGT_useful <- bacGT %>%
 d <- read.csv("data/advsearch_bacdive_2025-05-20.csv") %>%
   filter(!is.na(ID)) %>%
   filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "facultative anaerobe",
-                                 "microaerophile", "anaerobe", "obligate anaerobe")) %>%
+                                 "microaerophile", "anaerobe", "obligate anaerobe",
+                                 "facultative aerobe")) %>%
   filter(is_type_strain_header == 1)
 table(d$Oxygen.tolerance)
 split_list <- split(d, ceiling(seq_len(nrow(d)) / 100))
@@ -78,17 +81,20 @@ info <- list()
 # n = 7124 using the 4 main categories
 d_ncbi <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_Phy_O2_GCA_ID.csv") %>%
   filter(!is.na(ID)) %>%
-  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
+  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", 
+                                 "obligate anaerobe")) %>%
   mutate(Genome.Sequence.database = "NCBI")
 
 # Add img? But not linked to GTDB
 d_img_phy <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_Phy_O2_notGCA_ID.csv") %>%
   filter(!is.na(ID)) %>%
-  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
+  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", 
+                                 "obligate anaerobe")) %>%
   dplyr::select(ID, phylum)
 d_img <- read.csv("data/advsearch_bacdive_2025-06-03_Dom_O2_notGCA_ID_IMG.csv") %>%
   filter(!is.na(ID)) %>%
-  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
+  filter(Oxygen.tolerance %in% c("obligate aerobe", "aerobe", "anaerobe", 
+                                 "obligate anaerobe")) %>%
   left_join(., d_img_phy, by = "ID") %>%
   filter(ID %notin% d_ncbi$ID) %>%
   filter(Genome.Sequence.associated.NCBI.tax.ID %notin% d$Genome.Sequence.associated.NCBI.tax.ID) %>%
@@ -228,13 +234,94 @@ phy_fig <- ggplot(phylum_counts_clear, aes(Phylum, Freq, fill = Oxygen2)) +
         legend.position.inside = c(1,1),
         legend.justification = c(1,1))
 phy_fig
-pdf("FinalFigs/FigureS1.pdf", width = 8, height = 6)
+pdf("FinalFigs/FigureS5.pdf", width = 8, height = 6)
 phy_fig
 dev.off()
-png("FinalFigs/FigureS1.png", width = 8, height = 6, units = "in", res = 300)
+png("FinalFigs/FigureS5.png", width = 8, height = 6, units = "in", res = 300)
 phy_fig
 dev.off()
 
+
+
+#### _Facultative ####
+# In manuscript revisions, need to investigate facultative taxa
+# Download genomes and make simulated metaG to check effect on gene ratio
+# Searched for:
+## Domain "Bacteria"
+## Oxygen tolerance "facultative anaerobe" and "facultative aerobe"
+## And any of the genome IDs
+fac_an <- read.csv("data/advsearch_bacdive_2026-04-07_facan_wGenome_n1598.csv",
+                   skip = 3) %>%
+  fill(ID) %>%
+  filter(INSDC.genome.accesion %in% bacGT_useful$ID2) %>%
+  group_by(ID) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  mutate(Oxygen = "facultative anaerobe") # n = 1586
+fac_aer <- read.csv("data/advsearch_bacdive_2026-04-07_facaer_wGenome_n78.csv",
+                   skip = 3) %>%
+  fill(ID) %>%
+  filter(INSDC.genome.accesion %in% bacGT_useful$ID2) %>%
+  group_by(ID) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  mutate(Oxygen = "facultative aerobe") # n = 78
+fac <- rbind(fac_an, fac_aer) %>%
+  left_join(., bacGT_useful, by = c("INSDC.genome.accesion" = "ID2")) %>%
+  separate(gtdb_taxonomy, remove = F, into = c("Domain", "Phylum", "Class", "Order", 
+                                               "Family", "Genus", "Species"), 
+           sep = ";")
+table(fac$Oxygen)
+table(fac$Phylum)
+length(unique(fac$ncbi_genbank_assembly_accession)) # 1655
+# Download these with list of NCBI accessions.
+# write.table(fac$ncbi_genbank_assembly_accession,
+#             "data/taxon_ids_fac_1664.txt", sep = "\t", row.names = F, col.names = F)
+# Run in terminal to clean file
+# perl -pi -e 's/\r\n/\n/g' taxon_ids_fac_1664.txt
+# sed 's/"//g' taxon_ids_fac_1664.txt > clean.txt
+# mv clean.txt taxon_ids_fac_1664.txt
+fac_meta <- fac %>%
+  dplyr::select(11:35)%>%
+  dplyr::select(-Oxygen, Oxygen) %>%
+  rename(Oxygen.tolerance = Oxygen) %>%
+  mutate(Oxygen2 = "facultative")
+#write.csv(fac_meta, "data/bacdive_gtdb_metadata_1664.csv", row.names = F)
+# Remove duplicates, format taxonomy, make plot
+fac_meta <- fac_meta %>%
+  filter(!duplicated(ncbi_genbank_assembly_accession)) %>%
+  mutate(Phylum = gsub("p__", "", Phylum))
+phylum_counts <- as.data.frame(table(fac_meta$Phylum)) %>%
+  arrange(desc(Freq)) %>%
+  mutate(Var1 = factor(Var1, levels = Var1))
+fac_counts <- fac_meta %>%
+  group_by(Phylum) %>%
+  summarise(Freq = n()) %>%
+  ungroup() %>%
+  mutate(Phylum = factor(Phylum, levels = phylum_counts$Var1))
+phy_fig <- ggplot(fac_counts, aes(Phylum, Freq)) +
+  geom_bar(stat = "identity") +
+  geom_text(data = phylum_counts,
+            aes(x = Var1, y = Freq + 50, label = Freq), size = 3, angle = 45, 
+            vjust = 1, inherit.aes = F) +
+  labs(x = "Phylum", y = "Genomes") +
+  scale_y_continuous(expand = c(0.01, 0.01),
+                     limits = c(0, 750)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        legend.title = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(1,1),
+        legend.justification = c(1,1))
+phy_fig
+pdf("FinalFigs/FigureS7.pdf", width = 7, height = 5)
+phy_fig
+dev.off()
+png("FinalFigs/FigureS7.png", width = 7, height = 5, units = "in", res = 300)
+phy_fig
+dev.off()
 
 
 #### Get Info Pass 1 ####
@@ -287,7 +374,7 @@ info_merged_wGenome <- info_merged %>%
 
 
 #### Info ####
-info_merged_wGenome <- readRDS("info_merged_wGenome.rds")
+info_merged_wGenome <- readRDS("data/info_merged_wGenome.rds")
 table(info_merged_wGenome$Domain)
 table(info_merged_wGenome$Phylum)
 table(info_merged_wGenome$Oxygen)
@@ -297,7 +384,8 @@ phylum_counts <- as.data.frame(table(info_merged_wGenome$Phylum)) %>%
 pdf("BacDive_PhylumNumbers.pdf", width = 8, height = 6)
 ggplot(phylum_counts, aes(Var1, Freq)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(x = Var1, y = Freq + 150, label = Freq), size = 2.5, angle = 45, vjust = 1) +
+  geom_text(aes(x = Var1, y = Freq + 150, label = Freq), 
+            size = 2.5, angle = 45, vjust = 1) +
   labs(x = "Phylum", y = "# genomes w O2 info") +
   scale_y_continuous(expand = c(0.01, 0.01),
                      limits = c(0, 3250)) +
@@ -319,7 +407,8 @@ info_merged_wGenome_clear <- info_merged_wGenome %>%
   filter(Oxygen %in% c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe")) %>%
   filter(Domain == "Bacteria") %>%
   mutate(Oxygen = factor(Oxygen,
-                         levels = c("obligate aerobe", "aerobe", "anaerobe", "obligate anaerobe"))) %>%
+                         levels = c("obligate aerobe", "aerobe", "anaerobe", 
+                                    "obligate anaerobe"))) %>%
   mutate(Oxygen2 = case_match(Oxygen,
                               c("obligate aerobe", "aerobe") ~ "aerobic",
                               c("anaerobe", "obligate anaerobe") ~ "anaerobic")) %>%
